@@ -1,0 +1,94 @@
+import { DipArrows } from "../../../widgets/CraftWidgets";
+
+Две последние буквы SOLID — про зависимости. **ISP** говорит, насколько широкими должны быть интерфейсы, **DIP** — в какую сторону должны смотреть зависимости между слоями. Второй принцип — основа внедрения зависимостей в Spring, и почти каждый Java-разработчик пользуется им ежедневно, не всегда это осознавая.
+
+## I — Interface Segregation: узкие интерфейсы
+
+Клиенты не должны зависеть от методов, которыми не пользуются. Толстый интерфейс заставляет реализации заглушать лишнее, а клиентов — пересобираться из-за чужих изменений.
+
+<Compare
+  left={{ label: "Толстый интерфейс", code: `interface Printer {
+    void print(Document d);
+    void scan(Document d);
+    void fax(Document d);
+    void staple(Document d);
+}
+
+class SimplePrinter implements Printer {
+    public void print(Document d) { ... }
+    public void scan(Document d)   { throw new UnsupportedOperationException(); }
+    public void fax(Document d)    { throw new UnsupportedOperationException(); }
+    public void staple(Document d) { throw new UnsupportedOperationException(); }
+}` }}
+  right={{ label: "Роли по отдельности", code: `interface Printer { void print(Document d); }
+interface Scanner { void scan(Document d); }
+interface Fax     { void fax(Document d); }
+
+class SimplePrinter implements Printer { ... }
+class OfficeMfp implements Printer, Scanner, Fax { ... }
+
+// код печати зависит только от Printer
+void printAll(List<Document> docs, Printer p) { ... }` }}
+  note="Заглушки с UnsupportedOperationException — заодно и нарушение LSP. Узкие интерфейсы-роли устраняют оба запаха."
+/>
+
+На практике ISP — это ещё и про **интерфейс для потребителя**: сервис отчётов не должен получать весь `UserRepository` с методами удаления — достаточно интерфейса `UserLookup` с одним методом. Такой интерфейс легко подменить в тесте.
+
+## D — Dependency Inversion: зависимости смотрят внутрь
+
+Две части принципа:
+1. Модули верхнего уровня (бизнес-правила) не должны зависеть от модулей нижнего уровня (база, HTTP, SDK). **Оба зависят от абстракций.**
+2. Абстракции не зависят от деталей. Детали зависят от абстракций.
+
+«Инверсия» — потому что по умолчанию зависимости идут сверху вниз: сервис вызывает репозиторий и импортирует его. DIP переворачивает стрелку **зависимости в исходном коде**, хотя вызов по-прежнему идёт сверху вниз:
+
+<DipArrows />
+
+Ключевая деталь: интерфейс `PaymentGateway` **принадлежит бизнес-слою** и описан его словами (`charge(Money, CardToken)`), а не словами Stripe (`PaymentIntent.create(params)`). Инфраструктура подстраивается под бизнес, а не наоборот.
+
+## DIP, DI и IoC — что есть что
+
+Три понятия, которые часто путают:
+
+- **DIP** (принцип) — направление зависимостей: от деталей к абстракциям.
+- **DI** (внедрение зависимостей, техника) — объект не создаёт зависимости сам (`new StripeGateway()`), а получает их снаружи, обычно через конструктор.
+- **IoC-контейнер** (инструмент) — Spring, который сам создаёт объекты и раздаёт зависимости.
+
+```java
+@Service
+class OrderService {
+    private final PaymentGateway payments;   // абстракция из домена
+    private final OrderRepository orders;
+
+    OrderService(PaymentGateway payments, OrderRepository orders) {   // DI через конструктор
+        this.payments = payments;
+        this.orders = orders;
+    }
+}
+
+@Component
+class StripeGateway implements PaymentGateway { ... }   // Spring подставит его
+
+// в тесте — без Spring и без сети:
+var service = new OrderService(new FakeGateway(), new InMemoryOrders());
+```
+
+**Внедрение через конструктор** — лучший вариант: зависимости видны, поля `final`, объект нельзя создать недособранным, а слишком длинный конструктор сразу показывает нарушение SRP. Внедрение через поле (`@Autowired private`) прячет зависимости и мешает тестам.
+
+## Не перегибай
+
+Интерфейс на каждый класс «для DIP» — частый перегиб. Абстракция нужна на **границе**: там, где за ней изменчивая или внешняя деталь (база, платёжка, почта, часы, случайность), или там, где нужна подмена в тестах. Внутри домена классы могут зависеть друг от друга напрямую.
+
+<Quiz
+  q="Где должен лежать интерфейс PaymentGateway по DIP?"
+  options={["В пакете интеграции со Stripe", "В бизнес-слое, рядом с OrderService, и описывать операции словами домена", "В общем пакете utils", "Это не важно"]}
+  answer={1}
+  why="Интерфейс — это требование бизнеса к внешнему миру. Если он лежит у Stripe и повторяет его API, бизнес-слой фактически зависит от Stripe. Владение абстракцией и определяет направление зависимости."
+/>
+
+<Takeaways>
+- **ISP**: клиент не должен зависеть от лишних методов. Узкие интерфейсы-роли, интерфейс под потребителя; заглушки `UnsupportedOperationException` — сигнал нарушения.
+- **DIP**: бизнес-правила не зависят от инфраструктуры; оба зависят от абстракций, а абстракция **принадлежит бизнесу**.
+- **DIP** — принцип, **DI** — техника (зависимости приходят снаружи), **Spring** — IoC-контейнер. Лучше всего — внедрение через конструктор.
+- Абстракции — на границах (БД, внешние API, время), а не на каждом классе.
+</Takeaways>

@@ -1,0 +1,105 @@
+В функциональных языках есть приём, который сильнее всего меняет стиль кода: **сделать невозможные состояния непредставимыми**. Если значения может не быть — это видно в типе. Если операция может закончиться ошибкой — это видно в типе. Если у сущности три варианта — тип допускает ровно три, и компилятор проверяет, что ты разобрал каждый.
+
+## Optional: «может не быть» в типе
+
+`User findById(long id)` — что вернётся, если пользователя нет? `null`? Исключение? Из сигнатуры не понять. `Optional<User> findById(long id)` честно говорит: может не быть, обработай.
+
+<Compare
+  left={{ label: "null и проверки", code: `String city = "неизвестно";
+User u = repo.findById(id);
+if (u != null) {
+    Address a = u.getAddress();
+    if (a != null && a.getCity() != null) {
+        city = a.getCity();
+    }
+}` }}
+  right={{ label: "Optional", code: `String city = repo.findById(id)
+    .flatMap(User::address)       // address() тоже Optional
+    .map(Address::city)
+    .orElse("неизвестно");` }}
+  note={<><code>map</code> применяет функцию, если значение есть; <code>flatMap</code> — если функция сама возвращает Optional; <code>orElse</code>, <code>orElseGet</code>, <code>orElseThrow</code> — выход из Optional.</>}
+/>
+
+Правила использования:
+- `Optional` — для **возвращаемых значений**. Не для полей, параметров и коллекций (пустая коллекция уже означает «ничего»).
+- Никогда не возвращай `null` вместо `Optional` — это худшее из двух миров.
+- `optional.get()` без проверки — тот же NPE, только с другим именем. Используй `orElseThrow()` с понятным исключением.
+
+## Ошибка как значение: Result
+
+Исключения хороши для сбоев. Но «платёж отклонён банком» — не сбой, а **нормальный бизнес-исход**, который вызывающий обязан обработать. В Rust для этого `Result<T, E>`, в Haskell — `Either`. В современной Java то же самое строится из `sealed` и `record`:
+
+```java
+sealed interface PaymentResult permits Approved, Declined, NeedsThreeDS {}
+record Approved(String authCode) implements PaymentResult {}
+record Declined(String reason) implements PaymentResult {}
+record NeedsThreeDS(URI redirect) implements PaymentResult {}
+
+PaymentResult charge(Card card, Money amount) { ... }
+
+String message = switch (gateway.charge(card, amount)) {
+    case Approved a      -> "Оплачено, код " + a.authCode();
+    case Declined d      -> "Отказ: " + d.reason();
+    case NeedsThreeDS t  -> redirectTo(t.redirect());
+};   // нет default: компилятор проверит, что разобраны все варианты
+```
+
+Добавишь завтра вариант `Pending` — каждый `switch` по `PaymentResult` перестанет компилироваться, пока его не обработаешь. Исключение так не умеет: про новый тип исключения компилятор промолчит.
+
+## Алгебраические типы данных
+
+`sealed interface` + `record` — это **алгебраические типы данных** (ADT) из ML и Haskell, пришедшие в Java 17–21:
+
+- **тип-произведение** — `record Point(int x, int y)`: x **и** y одновременно;
+- **тип-сумма** — `sealed interface Shape permits Circle, Square`: Circle **или** Square, и больше ничего.
+
+Комбинируя их, можно описать предметную область так, что неверные состояния не существуют:
+
+<Compare
+  left={{ label: "Флаги и nullable-поля", code: `class Delivery {
+    String status;            // "NEW", "SHIPPED", "DELIVERED"
+    String trackingNumber;    // null, пока не отправлено
+    Instant deliveredAt;      // null, пока не доставлено
+    String courier;           // null для самовывоза
+}
+// ничто не мешает status = "NEW" и deliveredAt != null` }}
+  right={{ label: "Сумма состояний", code: `sealed interface Delivery {}
+record Pending() implements Delivery {}
+record Shipped(String tracking, String courier) implements Delivery {}
+record Delivered(String tracking, Instant at) implements Delivery {}
+
+// «новая доставка с датой вручения» нельзя
+// даже создать — такого варианта нет` }}
+/>
+
+Ярон Мински (Jane Street) сформулировал это как девиз: **make illegal states unrepresentable** — сделай недопустимые состояния непредставимыми.
+
+## Сопоставление с образцом
+
+Pattern matching (Java 21) разбирает такие типы, включая вложенные и с условиями:
+
+```java
+String describe(Delivery d) {
+    return switch (d) {
+        case Pending p -> "ждёт отправки";
+        case Shipped(var tracking, var courier) when courier.equals("self") -> "самовывоз, код " + tracking;
+        case Shipped(var tracking, var courier) -> courier + ", трек " + tracking;
+        case Delivered(var tracking, var at) -> "вручено " + at;
+    };
+}
+```
+
+<Quiz
+  q="Чем `sealed`-иерархия результата лучше исключения для отказа в платеже?"
+  options={["Она быстрее", "Отказ — нормальный исход: он виден в типе, и компилятор заставит разобрать все варианты, включая новые", "Исключения в Java устарели", "sealed-классы нельзя наследовать вообще"]}
+  answer={1}
+  why="Исключение легко забыть поймать, а новый тип исключения компилятор не заметит. Sealed-тип в сигнатуре объявляет все исходы, а switch без default перестанет компилироваться, если вариант не обработан."
+/>
+
+<Takeaways>
+- Главный приём: **сделай недопустимые состояния непредставимыми** — типами, а не проверками.
+- `Optional` — «может не быть» в типе; только для возвращаемых значений; `map`/`flatMap`/`orElse`, без голого `get()`.
+- **Ошибка как значение**: ожидаемые бизнес-исходы — `sealed`-иерархия вместо исключений.
+- **ADT** в Java: `record` — произведение (и то и то), `sealed` — сумма (или то, или то).
+- **Pattern matching** в `switch` разбирает варианты, а отсутствие `default` даёт проверку полноты компилятором.
+</Takeaways>

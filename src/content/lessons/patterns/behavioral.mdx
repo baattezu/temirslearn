@@ -1,0 +1,125 @@
+Поведенческие паттерны отвечают на вопрос: **кто за что отвечает и как объекты общаются**. Из одиннадцати паттернов этой группы в обычном бэкенде постоянно встречаются пять: Strategy, Observer, Template Method, Command и State. Остальные либо стали частью языка, либо редкость.
+
+## Strategy: поведение как параметр
+
+Вынести изменяющийся алгоритм в отдельный объект с общим интерфейсом и подставлять нужный.
+
+<Compare
+  left={{ label: "Классы-стратегии (до Java 8)", code: `interface ShippingCost { Money cost(Parcel p); }
+
+class Courier implements ShippingCost {
+    public Money cost(Parcel p) { return Money.of(1500).plus(p.kg() * 200); }
+}
+class Pickup implements ShippingCost {
+    public Money cost(Parcel p) { return Money.ZERO; }
+}
+checkout.setShipping(new Courier());` }}
+  right={{ label: "Стратегия — это функция", code: `Map<DeliveryType, Function<Parcel, Money>> shipping = Map.of(
+    COURIER, p -> Money.of(1500).plus(p.kg() * 200),
+    PICKUP,  p -> Money.ZERO
+);
+Money cost = shipping.get(type).apply(parcel);
+
+// и в JDK:
+users.sort(Comparator.comparing(User::lastName));` }}
+  note="Если стратегия — одна функция без состояния, лямбды хватает. Отдельный класс нужен, когда у стратегии есть зависимости (сервисы, конфиг) или несколько методов."
+/>
+
+## Observer: подписка на события
+
+Объект-издатель оповещает подписчиков, не зная, кто они. Это основа слабой связности: модуль заказов не знает про письма, бонусы и аналитику — они **подписаны** на событие «заказ оплачен».
+
+```java
+record OrderPaid(OrderId id, Money total) {}
+
+@Service class OrderService {
+    void pay(OrderId id) {
+        ...
+        events.publishEvent(new OrderPaid(id, total));   // не знает, кто слушает
+    }
+}
+@Component class ReceiptMailer {
+    @EventListener void on(OrderPaid e) { mailer.sendReceipt(e.id()); }
+}
+@Component class BonusAccrual {
+    @TransactionalEventListener(phase = AFTER_COMMIT)    // только если транзакция закоммитилась
+    void on(OrderPaid e) { bonuses.accrue(e.id(), e.total()); }
+}
+```
+
+Масштабированный Observer между сервисами — это брокер сообщений: **Kafka**, RabbitMQ. Ловушки те же, что у паттерна, только больнее: порядок доставки, повторная доставка и «издатель не знает, что подписчик упал».
+
+## Template Method: каркас с дырками
+
+Базовый класс задаёт **порядок шагов**, а наследники заполняют отдельные шаги. Это одно из немногих мест, где наследование уместно: базовый класс специально спроектирован для расширения.
+
+```java
+abstract class ReportJob {
+    final void run() {                          // final: порядок шагов не трогать
+        var data = load();
+        var rows = transform(data);
+        write(rows);
+        notifyDone();
+    }
+    protected abstract Data load();
+    protected abstract List<Row> transform(Data d);
+    protected void write(List<Row> rows) { csv.write(rows); }   // шаг по умолчанию
+    private void notifyDone() { ... }
+}
+```
+
+В JDK и Spring: `AbstractList` (реализуй `get` и `size` — остальное дадут), `JdbcTemplate` (каркас «соединение → запрос → маппинг → закрытие», ты даёшь только маппер — тут шаг передаётся уже лямбдой).
+
+## Command: действие как объект
+
+Запрос превращается в объект: его можно положить в очередь, выполнить позже, повторить, залогировать, отменить.
+
+- `Runnable` и `Callable`, отправленные в `ExecutorService`, — команды;
+- задачи в очереди (отправить письмо, пересчитать отчёт) — команды с данными;
+- undo/redo в редакторах — команды с методом `undo()`;
+- **CQRS** — архитектурный потомок: запись системы — это поток команд.
+
+## State: машина состояний
+
+Когда поведение объекта зависит от состояния, а переходы между состояниями — строгие правила, их стоит сделать **явными**. Платёж может перейти из «авторизован» в «списан», но не из «возвращён» в «списан».
+
+```java
+enum PaymentStatus {
+    CREATED, AUTHORIZED, CAPTURED, REFUNDED, FAILED;
+
+    private static final Map<PaymentStatus, Set<PaymentStatus>> NEXT = Map.of(
+        CREATED,    Set.of(AUTHORIZED, FAILED),
+        AUTHORIZED, Set.of(CAPTURED, FAILED),
+        CAPTURED,   Set.of(REFUNDED),
+        REFUNDED,   Set.of(),
+        FAILED,     Set.of()
+    );
+    PaymentStatus to(PaymentStatus next) {
+        if (!NEXT.get(this).contains(next))
+            throw new IllegalStateException(this + " → " + next + " запрещён");
+        return next;
+    }
+}
+```
+
+Классический GoF State — класс на каждое состояние с методами-переходами. В Java чаще хватает `enum` с таблицей переходов или sealed-иерархии, где у каждого состояния свои данные. Главное — переходы описаны **в одном месте**, а не размазаны по сервисам в виде `if (status.equals("PAID"))`.
+
+## Chain of Responsibility: конвейер обработчиков
+
+Запрос проходит по цепочке обработчиков, каждый решает — обработать, изменить, передать дальше или остановить. Это фильтры сервлетов, цепочка Spring Security, middleware в Express и интерсепторы в gRPC.
+
+<Quiz
+  q="Чем Observer через события лучше прямых вызовов mailer.send() и bonuses.accrue() из OrderService?"
+  options={["События быстрее прямых вызовов", "OrderService не знает о подписчиках: новые реакции добавляются без его изменения, модули слабо связаны", "События гарантируют доставку", "Так требует Spring"]}
+  answer={1}
+  why="Это OCP на уровне модулей: добавить аналитику или пуш-уведомления — значит добавить подписчика, не трогая заказ. Цена — поток выполнения становится менее явным, а при асинхронных событиях появляются вопросы доставки и порядка."
+/>
+
+<Takeaways>
+- **Strategy** — поведение как параметр; в современной Java часто просто лямбда.
+- **Observer** — издатель не знает подписчиков: события Spring, а между сервисами — Kafka.
+- **Template Method** — каркас шагов в базовом классе (`AbstractList`, `JdbcTemplate`); уместное наследование.
+- **Command** — действие как объект: очереди, ретраи, undo, CQRS.
+- **State** — явная машина состояний вместо `if` по строковым статусам; `enum` с таблицей переходов или sealed-типы.
+- **Chain of Responsibility** — фильтры и middleware.
+</Takeaways>

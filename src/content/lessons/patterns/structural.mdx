@@ -1,0 +1,105 @@
+import { DecoratorStack } from "../../../widgets/CraftWidgets";
+
+Структурные паттерны — о том, как **собирать объекты в конструкции**. Четыре из них — Adapter, Decorator, Proxy, Facade — выглядят почти одинаково: объект, который оборачивает другой объект. Разница — в **намерении**, и именно её спрашивают на собесе.
+
+| Паттерн | Интерфейс обёртки | Зачем |
+|---|---|---|
+| **Adapter** | **другой**, чем у обёрнутого | подогнать чужой интерфейс под нужный |
+| **Decorator** | **тот же** | добавить поведение, слоями |
+| **Proxy** | **тот же** | контролировать доступ: лениво, удалённо, с транзакцией |
+| **Facade** | **проще**, чем вся подсистема | спрятать сложность за простым входом |
+
+## Adapter: розетка-переходник
+
+Твой домен ждёт `PaymentGateway.charge(Money, CardToken)`. У провайдера SDK со своим API. Адаптер переводит одно в другое и держит все детали провайдера в одном классе:
+
+```java
+class StripeGateway implements PaymentGateway {        // интерфейс домена
+    private final StripeClient stripe;                 // чужой API
+
+    public ChargeResult charge(Money amount, CardToken card) {
+        var params = PaymentIntentCreateParams.builder()
+            .setAmount(amount.minorUnits())             // Stripe хочет копейки
+            .setCurrency(amount.currency().toLowerCase())
+            .setPaymentMethod(card.value())
+            .setConfirm(true)
+            .build();
+        try {
+            var intent = stripe.paymentIntents().create(params);
+            return ChargeResult.approved(intent.getId());
+        } catch (CardException e) {
+            return ChargeResult.declined(e.getDeclineCode());   // перевод ошибок тоже здесь
+        }
+    }
+}
+```
+
+Это то же, что DIP: адаптер — деталь, которая подстраивается под абстракцию домена. Сменить провайдера — написать второй адаптер.
+
+## Decorator: слоями
+
+Декоратор реализует **тот же интерфейс**, что и объект внутри, и добавляет поведение до или после вызова. Слои можно комбинировать как угодно — учебный пример прямо в JDK:
+
+<DecoratorStack />
+
+В бэкенде декораторы повсюду: кэширующий репозиторий поверх обычного, повтор с ретраями поверх HTTP-клиента, метрики вокруг любого сервиса.
+
+```java
+class CachingRates implements ExchangeRates {
+    private final ExchangeRates inner;
+    private final Cache<String, BigDecimal> cache;
+    public BigDecimal rate(String from, String to) {
+        return cache.get(from + to, k -> inner.rate(from, to));
+    }
+}
+ExchangeRates rates = new CachingRates(new RetryingRates(new NationalBankRates(http)), cache);
+```
+
+## Proxy: тот же интерфейс, контроль доступа
+
+Прокси выглядит как декоратор, но его цель — **управлять доступом** к объекту: создать лениво, проверить права, сходить по сети, обернуть в транзакцию. Ты пользуешься прокси каждый день в Spring, даже не видя их:
+
+- **`@Transactional`** — Spring создаёт прокси вокруг бина: открыть транзакцию → вызвать настоящий метод → закоммитить или откатить. Поэтому вызов метода изнутри того же класса (`this.save()`) идёт мимо прокси и транзакцию не открывает.
+- **Lazy-загрузка Hibernate** — `order.getCustomer()` возвращает прокси, который сходит в базу при первом обращении к полю. Отсюда `LazyInitializationException`, если сессия уже закрыта.
+- **`@Cacheable`, `@Async`, `@Retryable`**, Spring Security на методах — всё прокси.
+
+Технически Spring делает прокси двумя способами: **JDK dynamic proxy** (если бин реализует интерфейс) и **CGLIB** (генерирует подкласс). Отсюда ограничения: `final`-классы и `final`-методы через CGLIB проксировать нельзя.
+
+## Facade: один простой вход
+
+Фасад даёт **простой интерфейс** к сложной подсистеме. Оформление заказа — это склад, оплата, доставка, письма, бонусы; контроллеру незачем знать о каждом:
+
+```java
+@Service
+class CheckoutFacade {
+    Receipt checkout(Cart cart, PaymentDetails pay) {
+        inventory.reserve(cart);
+        var charge = payments.charge(cart.total(), pay);
+        var order = orders.create(cart, charge);
+        shipping.schedule(order);
+        events.publish(new OrderPlaced(order.id()));
+        return Receipt.of(order, charge);
+    }
+}
+```
+
+Фасад не запрещает ходить к подсистемам напрямую — он просто даёт удобную дорогу для типичного сценария.
+
+## Composite: дерево из одинаковых узлов
+
+Composite позволяет работать с **деревом** так же, как с одним элементом: у папки и файла один интерфейс `size()`, папка просто суммирует детей. Так устроены файловые системы, деревья UI, React-компоненты и правила скидок «и/или».
+
+<Quiz
+  q="Почему @Transactional не срабатывает при вызове метода из того же класса?"
+  options={["Spring не поддерживает вложенные транзакции", "Транзакцию открывает прокси вокруг бина, а вызов this.method() идёт напрямую к объекту, минуя прокси", "Метод должен быть static", "Нужно указать propagation = REQUIRES_NEW"]}
+  answer={1}
+  why="Это классический Proxy: внешние вызовы приходят через обёртку, которая управляет транзакцией. Внутренний вызов — обычный вызов метода у this, о прокси он ничего не знает."
+/>
+
+<Takeaways>
+- Adapter, Decorator, Proxy, Facade — все обёртки; различаются **намерением**: другой интерфейс / то же + поведение / то же + контроль доступа / проще.
+- **Adapter** — изоляция чужого API (провайдеры, SDK), перевод данных и ошибок.
+- **Decorator** — слои поведения с тем же интерфейсом: `java.io`, кэш, ретраи, метрики.
+- **Proxy** — основа Spring: `@Transactional`, lazy-загрузка, `@Cacheable`. JDK proxy или CGLIB; внутренний вызов идёт мимо прокси.
+- **Facade** — простой вход в сложную подсистему; **Composite** — дерево с единым интерфейсом.
+</Takeaways>
