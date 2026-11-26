@@ -105,11 +105,16 @@ export const TRACKS: Track[] = [
     ["event-loop", "Event loop", "Таски, микротаски, кадры"],
     ["v8", "V8", "Hidden classes, inline caches, JIT"],
   ]),
-  track("databases", "Бэкенд", "Базы данных", "PostgreSQL изнутри — твоя сильная сторона, доводим до уровня собеса.", "var(--color-rose)", [
+  track("databases", "Бэкенд", "Базы данных", "PostgreSQL изнутри: от байтов на странице до уровней изоляции.", "var(--color-rose)", [
+    ["heap-pages", "Страницы и кортежи", "Как строки лежат в 8 КБ: line pointers, заголовок, HOT, VACUUM", 25],
+    ["buffer-pool", "shared_buffers и WAL", "Clock-sweep, грязные страницы, что переживёт сбой", 25],
+    ["btree", "B-tree изнутри", "Расщепления, fanout, порядок колонок в составном индексе", 25],
     ["index-vs-seqscan", "Когда Postgres берёт индекс", "Модель стоимости планировщика на ползунках", 20],
-    ["btree", "B-tree изнутри", "Страницы, fanout, почему порядок колонок важен"],
-    ["mvcc", "MVCC", "xmin/xmax, снимки, VACUUM"],
-    ["isolation", "Уровни изоляции", "Аномалии и как их ловить"],
+    ["mvcc", "MVCC", "xmin/xmax, снимки, горизонт и wraparound", 25],
+    ["isolation", "Уровни изоляции", "Lost update, write skew, SSI и повтор транзакций", 25],
+    ["explain", "Читаем EXPLAIN ANALYZE", "Узлы плана, оценки против факта, buffers"],
+    ["locks", "Блокировки и deadlock'и", "Уровни блокировок, очередь, lock_timeout"],
+    ["replication", "Репликация", "Потоковая, логическая, лаг и слоты"],
   ]),
   track("tools", "Бэкенд", "Git, Docker, Kubernetes", "Инструменты, которые используешь каждый день, — изнутри.", "var(--color-rose)", [
     ["git-internals", "Git изнутри", "Объекты, деревья, коммиты как DAG"],
