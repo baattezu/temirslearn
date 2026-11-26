@@ -78,7 +78,7 @@ export function Home() {
           <Stat label="Интервью" value={avg === null ? "—" : `${avg}`} sub={scored.length ? `средний балл · ${scored.length}` : "ещё не было"} />
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 md:gap-4">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:gap-4">
           <QuickLink to="/problems" icon={<Code2 className="size-5" />} title="Решить задачу" sub="Python или JS, судья в браузере" />
           <QuickLink to="/interview" icon={<Mic className="size-5" />} title="Пройти интервью" sub="Отвечаешь голосом, ИИ оценивает" />
           <QuickLink to="/practice" icon={<PencilRuler className="size-5" />} title="Математика на бумаге" sub="Разбор, генератор задач, проверка фото" />
@@ -186,7 +186,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 
 function QuickLink({ to, icon, title, sub }: { to: string; icon: ReactNode; title: string; sub: string }) {
   return (
-    <Link to={to} className="group flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
+    <Link to={to} className="group flex min-w-0 items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-raised text-accent">{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="font-medium text-ink">{title}</div>

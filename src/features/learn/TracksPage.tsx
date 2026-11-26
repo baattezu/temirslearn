@@ -15,19 +15,19 @@ export function TracksPage() {
           Порядок не случайный: сначала история и математика, потом железо, алгоритмы и ремесло, и только потом языки — они лишь форма.
         </p>
       </PageHeader>
-      <div className="grid gap-8 px-5 pt-4 md:px-10">
+      <div className="grid grid-cols-1 gap-8 px-5 pt-4 md:px-10">
         {GROUPS.map((g, gi) => (
           <section key={g.id}>
             <h2 className="mb-3 flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.12em] text-mute">
               <span className="text-line-strong">{String(gi + 1).padStart(2, "0")}</span> {g.title}
             </h2>
-            <div className="grid gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
               {g.tracks.map((id) => {
                 const t = trackById(id)!;
                 const ready = t.lessons.filter((l) => l.ready).length;
                 const idx = Math.round(indexOf(t.lessons, data) * 100);
                 return (
-                  <Link key={t.id} to={`/t/${t.id}`} className="group flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
+                  <Link key={t.id} to={`/t/${t.id}`} className="group flex min-w-0 items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
                     <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-raised">
                       <TrackIcon id={t.id} color={ready ? t.color : "var(--color-mute)"} className="size-6" />
                     </div>
