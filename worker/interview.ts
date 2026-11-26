@@ -54,8 +54,35 @@ const SUMMARY_SCHEMA = {
 const langName = (lang: Lang) => (lang === "en" ? "English" : "Russian");
 const role = (id: RoleId) => ROLES.find((r) => r.id === id) ?? ROLES[0];
 
-export function asrHint(roleId: RoleId) {
-  return `Technical interview answer. Topics: ${role(roleId).focus}.`;
+export interface Topic {
+  id: string; // id урока
+  title: string;
+  focus: string; // о чём урок + вопросы из банка
+}
+
+export function asrHint(roleId: RoleId, topic?: Topic | null) {
+  return `Technical interview answer. Topics: ${topic ? `${topic.title}. ${topic.focus.slice(0, 600)}` : role(roleId).focus}.`;
+}
+
+const ctxLabel = (roleId: RoleId, topic?: Topic | null) => (topic ? `Single-topic check: ${topic.title}` : role(roleId).label);
+
+/** Зачёт по одной теме: вопросы строго по уроку, от «объясни» к «что будет, если». */
+export async function generateTopicQuestions(env: Env, topic: Topic, lang: Lang, count: number) {
+  const out = await chatJson<{ questions: Question[] }>(env, {
+    name: "topic_questions",
+    system:
+      "You are a demanding but fair technical interviewer checking whether the candidate truly understands ONE topic, not whether they memorised it. " +
+      "Questions must be answerable out loud in 1–2 minutes.",
+    user: [
+      `Topic: ${topic.title}.`,
+      `What the lesson covers and typical questions on it:\n${topic.focus.slice(0, 3000)}`,
+      `Write exactly ${count} questions in ${langName(lang)} strictly about this topic, ordered: 1) explain the core mechanism in your own words, 2) "what happens if…" / predict behaviour, 3) a trade-off or a realistic production situation.`,
+      "Do not copy the typical questions verbatim — rephrase or approach from another angle so the answer cannot be recited.",
+      "For each question give `topic` (2–4 words) and `expects`: 3–6 short key points a strong answer covers.",
+    ].join("\n"),
+    schema: QUESTIONS_SCHEMA,
+  });
+  return out.questions.slice(0, count);
 }
 
 export async function generateQuestions(env: Env, roleId: RoleId, level: Level, lang: Lang, count: number, avoid: string[]) {
@@ -81,7 +108,7 @@ export async function generateQuestions(env: Env, roleId: RoleId, level: Level, 
   return out.questions.slice(0, count);
 }
 
-export async function gradeAnswer(env: Env, roleId: RoleId, level: Level, lang: Lang, q: Question, transcript: string) {
+export async function gradeAnswer(env: Env, roleId: RoleId, level: Level, lang: Lang, q: Question, transcript: string, topic?: Topic | null) {
   const g = await chatJson<Grade>(env, {
     name: "answer_grade",
     system:
@@ -89,7 +116,7 @@ export async function gradeAnswer(env: Env, roleId: RoleId, level: Level, lang: 
       "Be calibrated: 10 = would impress a senior interviewer, 7 = solid pass, 5 = borderline, 3 = major gaps, 0 = no answer or wrong. " +
       "Point out factual errors explicitly. Never invent things the candidate did not say.",
     user: [
-      `Role: ${role(roleId).label}, level: ${level}.`,
+      `Role: ${ctxLabel(roleId, topic)}, level: ${level}.`,
       `Question: ${q.q}`,
       `Key points expected: ${q.expects.join("; ")}`,
       `Candidate answer (transcript):\n"""${transcript.slice(0, 8000)}"""`,
@@ -112,13 +139,15 @@ export async function summarize(
   level: Level,
   lang: Lang,
   items: { q: Question; transcript: string; grade: Grade }[],
+  topic?: Topic | null,
 ) {
   const s = await chatJson<Summary>(env, {
     name: "interview_summary",
     system:
       "You are the interviewer writing the debrief after a technical interview. Be honest and specific, like a hiring committee note.",
     user: [
-      `Role: ${role(roleId).label}, level: ${level}. Write in ${langName(lang)}.`,
+      `Role: ${ctxLabel(roleId, topic)}, level: ${level}. Write in ${langName(lang)}.`,
+      topic ? "This was a single-topic understanding check: score how well the candidate understands this one topic (70+ = can explain it confidently to an interviewer)." : "",
       ...items.map(
         (it, i) =>
           `Q${i + 1} [${it.q.topic}] ${it.q.q}\nScore ${it.grade.score}/10. Covered: ${it.grade.covered.join("; ")}. Missed: ${it.grade.missed.join("; ")}. Wrong: ${it.grade.wrong.join("; ")}.`,

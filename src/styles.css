@@ -213,3 +213,43 @@ input[type="range"] {
 .anim-pop {
   animation: pop-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
+/* узел «пора повторить» мягко пульсирует */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-amber) 45%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-amber) 0%, transparent); }
+}
+.anim-pulse-ring {
+  animation: pulse-ring 2.4s ease-in-out infinite;
+}
+
+/* выделения в уроках — CSS Custom Highlight API, DOM урока не трогаем */
+::highlight(hl-yellow) { background-color: rgb(255 214 10 / 0.32); color: inherit; }
+::highlight(hl-green) { background-color: rgb(111 220 140 / 0.3); color: inherit; }
+::highlight(hl-blue) { background-color: rgb(106 167 255 / 0.32); color: inherit; }
+::highlight(hl-pink) { background-color: rgb(255 122 144 / 0.32); color: inherit; }
+
+/* пиксель-арт ассистента */
+.pixel {
+  image-rendering: pixelated;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+.anim-bob {
+  animation: bob 1.6s steps(2) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-pulse-ring, .anim-bob { animation: none; }
+}
+@keyframes sprite {
+  from { background-position: 0 0; }
+  to { background-position: var(--sprite-w) 0; }
+}
+.anim-sprite {
+  animation: sprite 2.2s steps(4) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-sprite { animation: none; }
+}

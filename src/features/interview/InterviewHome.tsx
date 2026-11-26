@@ -103,9 +103,11 @@ export function InterviewHome() {
                   className={cx("flex items-center gap-3 bg-surface px-4 py-3 transition hover:bg-raised", i > 0 && "border-t border-line")}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14px] font-medium text-ink">{roleLabel(h.role)}</div>
+                    <div className="truncate text-[14px] font-medium text-ink">
+                      {h.topic ? `Зачёт: ${(JSON.parse(h.topic) as { title: string }).title}` : roleLabel(h.role)}
+                    </div>
                     <div className="text-[12px] text-mute">
-                      {h.level} · {h.lang.toUpperCase()} · {ago(h.created_at)}
+                      {h.topic ? "тема" : h.level} · {h.lang.toUpperCase()} · {ago(h.created_at)}
                       {!h.finished_at && ` · ${h.answered}/${h.total}`}
                     </div>
                   </div>

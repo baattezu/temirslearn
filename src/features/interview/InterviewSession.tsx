@@ -1,8 +1,9 @@
 import { ArrowRight, Flag, Keyboard, Mic, RotateCcw, Sparkles, Square, Trash2, Volume2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Navigate, useNavigate, useParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams } from "react-router";
 import type { Grade, Summary } from "../../../shared/interview";
 import { PageHeader } from "../../app/Layout";
+import { useData } from "../../app/data";
 import { api } from "../../lib/api";
 import { useApi, useIsPhone } from "../../lib/hooks";
 import { Button, IconButton } from "../../ui/Button";
@@ -31,6 +32,7 @@ export function InterviewSession() {
 function Session({ iv, setIv }: { iv: Interview; setIv: (f: (d: Interview) => Interview) => void }) {
   const phone = useIsPhone();
   const navigate = useNavigate();
+  const { refreshTopics } = useData();
   const firstOpen = iv.questions.findIndex((_, i) => !iv.answers.some((a) => a.idx === i));
   const [idx, setIdx] = useState(firstOpen === -1 ? iv.questions.length - 1 : firstOpen);
   const [showSummary, setShowSummary] = useState(!!iv.summary);
@@ -45,6 +47,7 @@ function Session({ iv, setIv }: { iv: Interview; setIv: (f: (d: Interview) => In
     try {
       const summary = await api<Summary>(`/interviews/${iv.id}/finish`, { method: "POST" });
       setIv((d) => ({ ...d, summary, score: summary.score, finished_at: Date.now() }));
+      void refreshTopics();
       setShowSummary(true);
       window.scrollTo({ top: 0 });
     } catch (e) {
@@ -56,16 +59,17 @@ function Session({ iv, setIv }: { iv: Interview; setIv: (f: (d: Interview) => In
 
   const remove = async () => {
     await api(`/interviews/${iv.id}`, { method: "DELETE" });
-    navigate("/interview", { replace: true });
+    void refreshTopics();
+    navigate(iv.topic ? `/l/${iv.topic.id}` : "/interview", { replace: true });
   };
 
-  const title = `${roleLabel(iv.role)} · ${iv.level}`;
+  const title = iv.topic ? `Зачёт: ${iv.topic.title}` : `${roleLabel(iv.role)} · ${iv.level}`;
 
   return (
     <div className="pb-16">
       <PageHeader
-        back="/interview"
-        eyebrow="Интервью"
+        back={iv.topic ? `/l/${iv.topic.id}` : "/interview"}
+        eyebrow={iv.topic ? <Link to={`/l/${iv.topic.id}`} className="hover:text-ink">Устный зачёт по теме · вернуться к уроку</Link> : "Интервью"}
         title={title}
         actions={
           <IconButton label="Удалить интервью" onClick={remove}>

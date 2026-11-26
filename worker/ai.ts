@@ -3,11 +3,20 @@
 const WORKERS_LLM = "@cf/openai/gpt-oss-120b";
 const WORKERS_ASR = "@cf/openai/whisper-large-v3-turbo";
 const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-5.5";
+const WORKERS_VISION = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const DEFAULT_OPENROUTER_VISION = "google/gemini-2.5-flash";
+
+function userContent(call: JsonCall) {
+  if (!call.images?.length) return call.user;
+  return [{ type: "text", text: call.user }, ...call.images.map((url) => ({ type: "image_url", image_url: { url } }))];
+}
 
 export interface JsonCall {
   name: string;
   system: string;
   user: string;
+  /** data:-URL картинок — для проверки решений по фото */
+  images?: string[];
   schema: Record<string, unknown>;
   maxTokens?: number;
 }
@@ -45,10 +54,12 @@ async function viaOpenRouter(env: Env, call: JsonCall): Promise<string> {
       "x-title": "temirslearn",
     },
     body: JSON.stringify({
-      model: env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL,
+      model: call.images?.length
+        ? env.OPENROUTER_VISION_MODEL || DEFAULT_OPENROUTER_VISION
+        : env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL,
       messages: [
         { role: "system", content: call.system },
-        { role: "user", content: call.user },
+        { role: "user", content: userContent(call) },
       ],
       response_format: { type: "json_schema", json_schema: { name: call.name, strict: true, schema: call.schema } },
       max_tokens: call.maxTokens ?? 4000,
@@ -59,10 +70,11 @@ async function viaOpenRouter(env: Env, call: JsonCall): Promise<string> {
 }
 
 async function viaWorkersAI(env: Env, call: JsonCall): Promise<string> {
-  const res = await env.AI.run(WORKERS_LLM as Parameters<Ai["run"]>[0], {
+  const model = call.images?.length ? WORKERS_VISION : WORKERS_LLM;
+  const res = await env.AI.run(model as Parameters<Ai["run"]>[0], {
     messages: [
       { role: "system", content: call.system },
-      { role: "user", content: call.user },
+      { role: "user", content: userContent(call) },
     ],
     response_format: { type: "json_schema", json_schema: { name: call.name, strict: true, schema: call.schema } },
     max_tokens: call.maxTokens ?? 4000,
@@ -83,7 +95,7 @@ export async function chatJson<T>(env: Env, call: JsonCall): Promise<T> {
   throw lastError;
 }
 
-function toBase64(buf: ArrayBuffer) {
+export function toBase64(buf: ArrayBuffer) {
   const bytes = new Uint8Array(buf);
   let bin = "";
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));

@@ -1,6 +1,75 @@
 import { Check, Info, Lightbulb, TriangleAlert, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cx } from "../ui/cx";
+import { PracticeInline } from "../features/practice/Practice";
+
+/**
+ * Иллюстрация с подписью и источником. Картинки лежат в public/img/<track>/,
+ * источник обязателен: автор, лицензия, ссылка (Wikimedia Commons и т.п.).
+ */
+export function Figure({
+  src,
+  alt,
+  caption,
+  credit,
+  href,
+  wide,
+  pixel,
+}: {
+  src: string;
+  alt: string;
+  caption?: ReactNode;
+  credit?: string;
+  href?: string;
+  wide?: boolean;
+  pixel?: boolean;
+}) {
+  return (
+    <figure className={cx("not-prose my-7", wide && "md:-mx-10")}>
+      <div className="overflow-hidden rounded-2xl border border-line bg-[#0e1114]">
+        <img src={src} alt={alt} loading="lazy" className={cx("mx-auto max-h-[460px] w-full object-contain", pixel && "pixel")} />
+      </div>
+      {(caption || credit) && (
+        <figcaption className="mt-2 px-1 text-[13px] leading-snug text-mute">
+          {caption && <span className="text-dim">{caption}</span>}
+          {credit && (
+            <span className="mt-0.5 block text-[11.5px]">
+              {href ? (
+                <a href={href} target="_blank" rel="noreferrer" className="hover:text-dim">
+                  {credit}
+                </a>
+              ) : (
+                credit
+              )}
+            </span>
+          )}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/** Лента истории: год → событие → почему это важно. */
+export function Timeline({ items }: { items: { year: string; title: string; text: ReactNode; img?: string; tone?: string }[] }) {
+  return (
+    <ol className="not-prose relative my-8 grid gap-5 border-l-2 border-line pl-6">
+      {items.map((it, i) => (
+        <li key={i} className="relative">
+          <span
+            className="absolute -left-[31px] top-1 size-3.5 rounded-full border-2 border-bg"
+            style={{ background: it.tone ?? "var(--color-accent)" }}
+          />
+          <div className="font-mono text-[12px] font-semibold tracking-wide" style={{ color: it.tone ?? "var(--color-accent)" }}>
+            {it.year}
+          </div>
+          <div className="mt-0.5 text-[16px] font-semibold leading-snug text-ink">{it.title}</div>
+          <div className="mt-1 text-[14.5px] leading-relaxed text-dim [&_code]:font-mono [&_code]:text-ink [&_strong]:text-ink">{it.text}</div>
+          {it.img && <img src={it.img} alt="" loading="lazy" className="mt-2.5 max-h-48 rounded-xl border border-line object-cover" />}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 type Kind = "info" | "tip" | "warn";
 const kinds: Record<Kind, { icon: ReactNode; cls: string }> = {
@@ -88,4 +157,4 @@ export function Takeaways({ children }: { children: ReactNode }) {
   );
 }
 
-export const mdxComponents = { Callout, Quiz, Takeaways };
+export const mdxComponents = { Callout, Quiz, Takeaways, Practice: PracticeInline, Figure, Timeline };

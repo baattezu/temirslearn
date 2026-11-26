@@ -10,6 +10,7 @@ export interface InterviewListItem {
   finished_at: number | null;
   total: number;
   answered: number;
+  topic: string | null; // JSON {id,title,focus} — зачёт по теме
 }
 
 export interface Answer {
@@ -30,4 +31,5 @@ export interface Interview {
   created_at: number;
   finished_at: number | null;
   answers: Answer[];
+  topic: { id: string; title: string; focus: string } | null;
 }

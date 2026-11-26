@@ -7,4 +7,5 @@ interface Env {
   SESSION_SECRET: string;
   OPENROUTER_API_KEY?: string;
   OPENROUTER_MODEL?: string;
+  OPENROUTER_VISION_MODEL?: string;
 }

@@ -1,4 +1,4 @@
-import { ArrowRight, Code2, Mic, Play } from "lucide-react";
+import { ArrowRight, Code2, Mic, PencilRuler, Play, Repeat } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { PageHeader } from "../../app/Layout";
@@ -7,12 +7,15 @@ import { LESSONS, TRACKS, lessonById } from "../../content/catalog";
 import { PROFESSIONS, professionById, professionLessons } from "../../content/roadmaps";
 import { nextInProfession, stats, usePrimaryProfession } from "../roadmap/Roadmap";
 import { useApi } from "../../lib/hooks";
+import { dueLessons, indexOf } from "../../lib/mastery";
+import { HeatGrid } from "../review/ReviewPage";
 import { PROBLEMS } from "../../problems";
 import { Card, Progress, SectionTitle } from "../../ui/misc";
 import { cx } from "../../ui/cx";
 
 export function Home() {
-  const { progress, submissions } = useData();
+  const data = useData();
+  const { progress, submissions } = data;
   const { data: activity } = useApi<{ day: string; count: number }[]>("/activity");
   const { data: interviews } = useApi<{ score: number | null }[]>("/interviews");
 
@@ -62,6 +65,13 @@ export function Home() {
           </Link>
         )}
 
+        <UnderstandingCard
+          index={indexOf(professionLessons(primary).map((id) => lessonById(id)!).filter(Boolean), data)}
+          total={indexOf(LESSONS, data)}
+          due={dueLessons(data).length}
+          primaryTitle={primary.title}
+        />
+
         <div className="grid grid-cols-3 gap-2.5 md:gap-4">
           <Stat label="Уроков" value={`${done}/${ready.length}`} sub={`из ${LESSONS.length} в плане`} />
           <Stat label="Задач" value={`${solved}/${PROBLEMS.length}`} sub="решено" />
@@ -71,7 +81,18 @@ export function Home() {
         <div className="grid gap-2.5 sm:grid-cols-2 md:gap-4">
           <QuickLink to="/problems" icon={<Code2 className="size-5" />} title="Решить задачу" sub="Python или JS, судья в браузере" />
           <QuickLink to="/interview" icon={<Mic className="size-5" />} title="Пройти интервью" sub="Отвечаешь голосом, ИИ оценивает" />
+          <QuickLink to="/practice" icon={<PencilRuler className="size-5" />} title="Математика на бумаге" sub="Разбор, генератор задач, проверка фото" />
+          <QuickLink to="/review" icon={<Repeat className="size-5" />} title="Повторение" sub="Темы, которые начали тускнеть" />
         </div>
+
+        {Object.keys(data.reviews).length > 0 && (
+          <section>
+            <SectionTitle action={<Link to="/review" className="text-[12.5px] text-dim hover:text-ink">повторение →</Link>}>Свежесть тем</SectionTitle>
+            <Card className="p-4">
+              <HeatGrid />
+            </Card>
+          </section>
+        )}
 
         <section>
           <SectionTitle>Активность</SectionTitle>
@@ -103,6 +124,47 @@ export function Home() {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+/** Индекс понимания: по основной профессии и по всему, плюс сколько тем пора повторить. */
+function UnderstandingCard({ index, total, due, primaryTitle }: { index: number; total: number; due: number; primaryTitle: string }) {
+  const pct = Math.round(index * 100);
+  const r = 30;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="grid gap-2.5 sm:grid-cols-[1fr_auto] md:gap-4">
+      <Card className="flex items-center gap-4 p-4 md:p-5">
+        <svg width="76" height="76" viewBox="0 0 76 76" className="shrink-0 -rotate-90" aria-hidden>
+          <circle cx="38" cy="38" r={r} fill="none" stroke="var(--color-line)" strokeWidth="7" />
+          <circle cx="38" cy="38" r={r} fill="none" stroke="var(--color-accent)" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${(c * pct) / 100} ${c}`} />
+        </svg>
+        <div className="min-w-0">
+          <div className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-mute">Индекс понимания</div>
+          <div className="mt-0.5 flex items-baseline gap-2">
+            <span className="font-mono text-[30px] font-semibold tabular-nums text-ink">{pct}</span>
+            <span className="text-[12.5px] text-mute">/ 100 · {primaryTitle}</span>
+          </div>
+          <div className="text-[12.5px] leading-snug text-mute">
+            по всем трекам {Math.round(total * 100)} · растёт от повторов, зачётов и задач, тает без повторений
+          </div>
+        </div>
+      </Card>
+      <Link
+        to="/review"
+        className={cx(
+          "flex items-center gap-3 rounded-2xl border p-4 transition md:min-w-[220px] md:p-5",
+          due ? "border-amber/35 bg-amber/[0.06] hover:border-amber/60" : "border-line bg-surface hover:border-line-strong",
+        )}
+      >
+        <Repeat className={cx("size-5 shrink-0", due ? "text-amber" : "text-mute")} />
+        <div className="min-w-0 flex-1">
+          <div className={cx("font-mono text-[24px] font-semibold tabular-nums", due ? "text-amber" : "text-ink")}>{due}</div>
+          <div className="text-[12.5px] text-mute">{due ? "пора повторить" : "повторять пока нечего"}</div>
+        </div>
+        <ArrowRight className="size-4 text-mute" />
+      </Link>
     </div>
   );
 }

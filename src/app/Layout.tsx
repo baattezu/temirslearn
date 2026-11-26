@@ -1,9 +1,12 @@
-import { BookOpen, ChevronLeft, Code2, House, LogOut, Map as MapIcon, Mic, NotebookPen } from "lucide-react";
-import type { ReactNode } from "react";
+import { BookOpen, ChevronDown, ChevronLeft, Code2, House, LogOut, Map as MapIcon, Mic, NotebookPen, PencilRuler, Repeat } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
-import { TRACKS } from "../content/catalog";
+import { GROUPS, trackById } from "../content/catalog";
+import { dueLessons, heatColor, heatOpacity, indexOf, masteryOf } from "../lib/mastery";
+import { TrackIcon } from "../ui/TrackIcon";
+import { Assistant } from "./Assistant";
 import { api } from "../lib/api";
-import { useIsPhone } from "../lib/hooks";
+import { useIsPhone, useLocalStorage } from "../lib/hooks";
 import { cx } from "../ui/cx";
 import { IconButton } from "../ui/Button";
 import { useData } from "./data";
@@ -31,12 +34,14 @@ export function Layout() {
         <Outlet />
       </main>
       {phone && isRoot && <TabBar />}
+      <Assistant />
     </div>
   );
 }
 
 function Sidebar() {
-  const { progress } = useData();
+  const data = useData();
+  const due = useMemo(() => dueLessons(data).length, [data]);
   const logout = async () => {
     await api("/auth/logout", { method: "POST" }).catch(() => {});
     location.reload();
@@ -65,28 +70,14 @@ function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="mt-6 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        <div className="mb-1.5 px-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-mute">Треки</div>
-        {TRACKS.map((t) => {
-          const ready = t.lessons.filter((l) => l.ready).length;
-          const done = t.lessons.filter((l) => progress[l.id]?.status === "done").length;
-          return (
-            <NavLink
-              key={t.id}
-              to={`/t/${t.id}`}
-              className={({ isActive }) =>
-                cx(
-                  "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] transition",
-                  isActive ? "bg-raised text-ink" : "text-dim hover:bg-raised/60 hover:text-ink",
-                )
-              }
-            >
-              <span className="size-1.5 shrink-0 rounded-full" style={{ background: ready ? t.color : "var(--color-line-strong)" }} />
-              <span className="truncate">{t.title}</span>
-              {done > 0 && <span className="ml-auto font-mono text-[11px] text-mute">{done}/{t.lessons.length}</span>}
-            </NavLink>
-          );
-        })}
+      <nav className="mt-1 grid gap-0.5 px-3">
+        <SideLink to="/review" icon={<Repeat className="size-[18px]" strokeWidth={1.8} />} label="Повторение" badge={due || undefined} />
+        <SideLink to="/practice" icon={<PencilRuler className="size-[18px]" strokeWidth={1.8} />} label="Тренажёр" />
+      </nav>
+      <div className="mt-5 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+        {GROUPS.map((g) => (
+          <SideGroup key={g.id} id={g.id} title={g.title} trackIds={g.tracks} />
+        ))}
       </div>
       <div className="flex items-center justify-between border-t border-line px-4 py-3">
         <span className="text-[13px] text-mute">temir</span>
@@ -95,6 +86,86 @@ function Sidebar() {
         </IconButton>
       </div>
     </aside>
+  );
+}
+
+function SideLink({ to, icon, label, badge }: { to: string; icon: ReactNode; label: string; badge?: number }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cx(
+          "flex h-9 items-center gap-3 rounded-lg px-2.5 text-[14px] transition",
+          isActive ? "bg-raised font-medium text-ink" : "text-dim hover:bg-raised/60 hover:text-ink",
+        )
+      }
+    >
+      {icon}
+      {label}
+      {badge !== undefined && (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber px-1 font-mono text-[11px] font-bold text-bg">{badge}</span>
+      )}
+    </NavLink>
+  );
+}
+
+/** Группа треков в сайдбаре: сворачивается, у каждого трека иконка и полоска свежести. */
+function SideGroup({ id, title, trackIds }: { id: string; title: string; trackIds: string[] }) {
+  const data = useData();
+  const { pathname } = useLocation();
+  const [collapsed, setCollapsed] = useLocalStorage<Record<string, boolean>>("tl.sidebar.collapsed", {});
+  const tracks = trackIds.map(trackById).filter((t) => !!t);
+  const activeInside = tracks.some((t) => pathname === `/t/${t.id}` || pathname.startsWith(`/l/${t.id}/`));
+  const isCollapsed = collapsed[id] && !activeInside;
+  const groupIdx = Math.round(indexOf(tracks.flatMap((t) => t.lessons), data) * 100);
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={() => setCollapsed({ ...collapsed, [id]: !collapsed[id] })}
+        className="flex h-8 w-full items-center gap-1.5 rounded-lg px-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-mute hover:text-dim"
+      >
+        <ChevronDown className={cx("size-3 transition", isCollapsed && "-rotate-90")} />
+        <span className="truncate">{title}</span>
+        {groupIdx > 0 && <span className="ml-auto tabular-nums">{groupIdx}</span>}
+      </button>
+      {!isCollapsed &&
+        tracks.map((t) => {
+          const ready = t.lessons.filter((l) => l.ready);
+          return (
+            <NavLink
+              key={t.id}
+              to={`/t/${t.id}`}
+              className={({ isActive }) =>
+                cx(
+                  "group flex min-h-8 items-center gap-2.5 rounded-lg px-2.5 py-1 text-[13px] transition",
+                  isActive ? "bg-raised text-ink" : "text-dim hover:bg-raised/60 hover:text-ink",
+                )
+              }
+            >
+              <TrackIcon id={t.id} color={ready.length ? t.color : "var(--color-mute)"} className="size-4 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{t.title}</span>
+                {ready.some((l) => data.reviews[l.id]) && (
+                  <span className="mt-0.5 flex gap-[2px]">
+                    {t.lessons.map((l) => {
+                      const m = masteryOf(l.id, data);
+                      return (
+                        <span
+                          key={l.id}
+                          className="h-[3px] flex-1 rounded-full"
+                          style={{ background: m.heat === "none" ? "var(--color-line)" : heatColor(m), opacity: m.heat === "none" ? 1 : heatOpacity(m) }}
+                        />
+                      );
+                    })}
+                  </span>
+                )}
+              </span>
+              {!ready.length && <span className="font-mono text-[10px] uppercase text-mute">скоро</span>}
+            </NavLink>
+          );
+        })}
+    </div>
   );
 }
 
