@@ -626,3 +626,199 @@ export function ForgettingCurve() {
     </Frame>
   );
 }
+
+// ── Кёнигсбергские мосты ───────────────────────────────────────────
+
+const LAND = [
+  { id: "N", name: "северный берег", x: 200, y: 40 },
+  { id: "S", name: "южный берег", x: 200, y: 240 },
+  { id: "I", name: "остров Кнайпхоф", x: 150, y: 140 },
+  { id: "E", name: "восточный остров", x: 330, y: 140 },
+] as const;
+type Land = (typeof LAND)[number]["id"];
+const BASE_BRIDGES: [Land, Land, number][] = [
+  ["N", "I", -22],
+  ["N", "I", 22],
+  ["S", "I", -22],
+  ["S", "I", 22],
+  ["N", "E", 0],
+  ["S", "E", 0],
+  ["I", "E", 0],
+];
+
+export function EulerBridges() {
+  const [extra, setExtra] = useState(false);
+  const bridges = useMemo(() => (extra ? [...BASE_BRIDGES, ["N", "S", 60] as [Land, Land, number]] : BASE_BRIDGES), [extra]);
+  const [at, setAt] = useState<Land | null>(null);
+  const [used, setUsed] = useState<number[]>([]);
+  const deg = (l: Land) => bridges.filter(([a, b]) => a === l || b === l).length;
+  const odd = LAND.filter((l) => deg(l.id) % 2 === 1);
+  const pos = (l: Land) => LAND.find((x) => x.id === l)!;
+  const reset = () => {
+    setAt(null);
+    setUsed([]);
+  };
+  const canCross = (i: number) => at !== null && !used.includes(i) && (bridges[i][0] === at || bridges[i][1] === at);
+  const cross = (i: number) => {
+    if (!canCross(i)) return;
+    const [a, b] = bridges[i];
+    setUsed([...used, i]);
+    setAt(a === at ? b : a);
+  };
+  const stuck = at !== null && used.length < bridges.length && !bridges.some((_, i) => canCross(i));
+  const won = used.length === bridges.length;
+
+  const path = (i: number) => {
+    const [a, b, bend] = bridges[i];
+    const p = pos(a);
+    const q = pos(b);
+    const mx = (p.x + q.x) / 2;
+    const my = (p.y + q.y) / 2;
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const len = Math.hypot(dx, dy);
+    const cx = mx + (-dy / len) * bend;
+    const cy = my + (dx / len) * bend;
+    return `M ${p.x} ${p.y} Q ${cx} ${cy} ${q.x} ${q.y}`;
+  };
+
+  return (
+    <Frame title="Кёнигсбергские мосты" hint="пройди каждый мост ровно один раз">
+      <div className="grid gap-4 md:grid-cols-[1fr_220px]">
+        <svg viewBox="0 0 440 280" className="w-full" role="img" aria-label="Граф мостов">
+          <path d="M0 95 C 120 120, 300 70, 440 100 L 440 185 C 300 205, 120 160, 0 185 Z" fill="rgb(106 167 255 / 0.12)" />
+          {bridges.map((_, i) => (
+            <path
+              key={i}
+              d={path(i)}
+              fill="none"
+              stroke={used.includes(i) ? C.lineStrong : canCross(i) ? C.accent : C.dim}
+              strokeWidth={canCross(i) ? 6 : 4}
+              strokeDasharray={used.includes(i) ? "4 6" : undefined}
+              strokeLinecap="round"
+              className={canCross(i) ? "cursor-pointer" : ""}
+              onClick={() => cross(i)}
+            />
+          ))}
+          {LAND.map((l) => (
+            <g key={l.id} onClick={() => at === null && setAt(l.id)} className={at === null ? "cursor-pointer" : ""}>
+              <circle cx={l.x} cy={l.y} r={22} fill={at === l.id ? C.accent : C.raised} stroke={deg(l.id) % 2 ? C.amber : C.ok} strokeWidth={3} />
+              <text x={l.x} y={l.y + 5} textAnchor="middle" fontSize={14} fontWeight={600} fill={at === l.id ? C.bg : C.ink}>
+                {deg(l.id)}
+              </text>
+            </g>
+          ))}
+        </svg>
+        <div className="text-[13.5px] leading-relaxed text-dim">
+          {at === null ? (
+            <p>Выбери, откуда начать прогулку, — нажми на кружок. Цифра в кружке — сколько мостов из него выходит.</p>
+          ) : won ? (
+            <p className="text-ok">Прошёл все мосты по разу! С лишним мостом нечётных вершин стало {odd.length} — и путь существует.</p>
+          ) : stuck ? (
+            <p className="text-amber">Тупик: из этой точки все мосты уже пройдены, а {bridges.length - used.length} ещё нет. Попробуй с другого старта — не выйдет.</p>
+          ) : (
+            <p>
+              Ты на: <span className="text-ink">{pos(at).name}</span>. Пройдено {used.length} из {bridges.length}. Зелёным светятся мосты, по которым можно идти.
+            </p>
+          )}
+          <p className="mt-3 text-[12.5px] text-mute">
+            Нечётных вершин: <span className="font-mono text-amber">{odd.length}</span>. Эйлер: путь по всем рёбрам по разу есть, только если нечётных вершин 0 или 2.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={reset} className="h-8 rounded-lg border border-line px-3 text-[12.5px] text-dim hover:text-ink">
+              Заново
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setExtra((v) => !v);
+                reset();
+              }}
+              className="h-8 rounded-lg border border-line px-3 text-[12.5px] text-dim hover:text-ink"
+            >
+              {extra ? "Убрать восьмой мост" : "Построить восьмой мост"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+// ── Система из двух уравнений = две прямые ───────────────────────────
+
+const pp = (n: number) => (n < 0 ? `(${n})` : `${n}`);
+
+export function TwoLines() {
+  const [a, setA] = useState({ a: 1, b: 1, c: 4 });
+  const [b, setB] = useState({ a: 1, b: -1, c: 0 });
+  // a·x + b·y = c
+  const det = a.a * b.b - a.b * b.a;
+  const x = det !== 0 ? (a.c * b.b - a.b * b.c) / det : null;
+  const y = det !== 0 ? (a.a * b.c - a.c * b.a) / det : null;
+  const same = det === 0 && a.a * b.c === b.a * a.c && a.b * b.c === b.b * a.c;
+  const S = 26;
+  const W = 300;
+  const toX = (v: number) => W / 2 + v * S;
+  const toY = (v: number) => W / 2 - v * S;
+  const line = (l: { a: number; b: number; c: number }) => {
+    if (l.b !== 0) return [-6, 6].map((xx) => [xx, (l.c - l.a * xx) / l.b]);
+    if (l.a !== 0) return [-6, 6].map((yy) => [l.c / l.a, yy]);
+    return null;
+  };
+  const edit = (l: typeof a, set: (v: typeof a) => void, color: string, name: string) => (
+    <div className="flex flex-wrap items-center gap-1.5 font-mono text-[13px]">
+      <span className="mr-1 size-2.5 rounded-full" style={{ background: color }} aria-hidden />
+      {(["a", "b", "c"] as const).map((k, i) => (
+        <span key={k} className="flex items-center gap-1">
+          <input
+            type="number"
+            aria-label={`${name}: ${k}`}
+            value={l[k]}
+            onChange={(e) => set({ ...l, [k]: Number(e.target.value) || 0 })}
+            className="h-8 w-14 rounded-lg border border-line bg-bg px-2 text-center text-ink"
+          />
+          <span className="text-mute">{i === 0 ? "x +" : i === 1 ? "y =" : ""}</span>
+        </span>
+      ))}
+    </div>
+  );
+  const la = line(a);
+  const lb = line(b);
+  return (
+    <Frame title="Система уравнений — это две прямые" hint="меняй коэффициенты">
+      <div className="grid gap-4 md:grid-cols-[300px_1fr]">
+        <svg viewBox={`0 0 ${W} ${W}`} className="w-full max-w-[300px]" role="img" aria-label="Две прямые на плоскости">
+          {Array.from({ length: 11 }, (_, i) => i - 5).map((v) => (
+            <g key={v}>
+              <line x1={toX(v)} x2={toX(v)} y1={0} y2={W} stroke={v === 0 ? C.lineStrong : C.line} />
+              <line y1={toY(v)} y2={toY(v)} x1={0} x2={W} stroke={v === 0 ? C.lineStrong : C.line} />
+            </g>
+          ))}
+          {la && <line x1={toX(la[0][0])} y1={toY(la[0][1])} x2={toX(la[1][0])} y2={toY(la[1][1])} stroke={C.blue} strokeWidth={2.5} />}
+          {lb && <line x1={toX(lb[0][0])} y1={toY(lb[0][1])} x2={toX(lb[1][0])} y2={toY(lb[1][1])} stroke={C.violet} strokeWidth={2.5} strokeDasharray={same ? "6 6" : undefined} />}
+          {x !== null && y !== null && <circle cx={toX(x)} cy={toY(y)} r={6} fill={C.accent} />}
+        </svg>
+        <div className="grid content-start gap-3">
+          {edit(a, setA, C.blue, "первое")}
+          {edit(b, setB, C.violet, "второе")}
+          <div className="rounded-xl bg-raised/60 p-3 text-[13.5px] leading-relaxed text-dim">
+            <div className="font-mono text-[12px] text-mute">
+              det = {pp(a.a)}·{pp(b.b)} − {pp(a.b)}·{pp(b.a)} = <span className={det === 0 ? "text-bad" : "text-ink"}>{det}</span>
+            </div>
+            {det !== 0 ? (
+              <p className="mt-1">
+                Одна точка пересечения: <span className="font-mono text-accent">x = {+x!.toFixed(3)}, y = {+y!.toFixed(3)}</span>. Определитель не ноль — решение единственное.
+              </p>
+            ) : same ? (
+              <p className="mt-1 text-amber">Прямые совпали: решений бесконечно много. Определитель 0.</p>
+            ) : (
+              <p className="mt-1 text-bad">Прямые параллельны: решений нет. Определитель 0 — «плоскость сплющилась».</p>
+            )}
+          </div>
+          <p className="text-[12.5px] text-mute">Попробуй второе уравнение 2x + 2y = 8 (совпадёт с первым) и 1x + 1y = 0 (параллельно).</p>
+        </div>
+      </div>
+    </Frame>
+  );
+}
