@@ -1,0 +1,25 @@
+// temirslearn: SPA (src/, собирается Vite) + Hono API (worker/) в одном Worker.
+// Статику Cloudflare раздаёт сам; Worker просыпается только на /api/*.
+//
+// Выкладка:  npm run deploy
+// Миграции:  npm run db:migrate
+// Секреты:   npx wrangler secret put AUTH_USER | AUTH_PASS_HASH | SESSION_SECRET
+//            npx wrangler secret put OPENROUTER_API_KEY   (необязательно)
+// Логи:      npx wrangler tail
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "temirslearn",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "temirslearn", "database_id": "5923e415-5611-41e5-8614-f62b5c9096df", "migrations_dir": "migrations" }
+  ],
+  "ai": { "binding": "AI" },
+  "routes": [{ "pattern": "temirslearn.verylabs.dev", "custom_domain": true }],
+  "observability": { "enabled": true }
+}

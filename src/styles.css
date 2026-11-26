@@ -1,0 +1,214 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-bg: #0b0d10;
+  --color-surface: #12151a;
+  --color-raised: #181c22;
+  --color-line: #242a33;
+  --color-line-strong: #333b47;
+  --color-ink: #e7e9ec;
+  --color-dim: #a3abb8;
+  --color-mute: #6f7887;
+
+  --color-accent: #c6f36b;
+  --color-accent-ink: #12180a;
+  --color-blue: #6aa7ff;
+  --color-amber: #ffb35c;
+  --color-rose: #ff7a90;
+  --color-violet: #a78bfa;
+  --color-teal: #4fd6c4;
+  --color-ok: #6fdc8c;
+  --color-bad: #ff6b6b;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+}
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+input[type="range"] {
+  accent-color: var(--color-accent);
+}
+
+/* ── Текст урока (MDX) ─────────────────────────────────── */
+.prose-lab {
+  font-size: 16.5px;
+  line-height: 1.72;
+  color: var(--color-dim);
+}
+.prose-lab > * + * {
+  margin-top: 1.05em;
+}
+.prose-lab h2 {
+  margin-top: 2.2em;
+  font-size: 1.4rem;
+  line-height: 1.3;
+  font-weight: 650;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+.prose-lab h3 {
+  margin-top: 1.8em;
+  font-size: 1.1rem;
+  font-weight: 650;
+  color: var(--color-ink);
+}
+.prose-lab strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.prose-lab a {
+  color: var(--color-blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.prose-lab ul,
+.prose-lab ol {
+  padding-left: 1.3em;
+}
+.prose-lab ul {
+  list-style: disc;
+}
+.prose-lab ol {
+  list-style: decimal;
+}
+.prose-lab li + li {
+  margin-top: 0.35em;
+}
+.prose-lab li::marker {
+  color: var(--color-mute);
+}
+.prose-lab :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  padding: 0.12em 0.38em;
+  border-radius: 6px;
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink);
+}
+.prose-lab pre {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  overflow-x: auto;
+}
+.prose-lab blockquote {
+  border-left: 3px solid var(--color-line-strong);
+  padding-left: 14px;
+  color: var(--color-mute);
+}
+.prose-lab table {
+  width: 100%;
+  font-size: 14.5px;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.prose-lab th,
+.prose-lab td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-line);
+  white-space: nowrap;
+}
+.prose-lab th {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.prose-lab .katex {
+  color: var(--color-ink);
+  font-size: 1.05em;
+}
+.prose-lab .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+.prose-lab hr {
+  border-color: var(--color-line);
+  margin: 2em 0;
+}
+
+/* highlight.js — палитра под токены */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in {
+  color: var(--color-violet);
+}
+.hljs-string,
+.hljs-attr {
+  color: var(--color-accent);
+}
+.hljs-number,
+.hljs-literal {
+  color: var(--color-amber);
+}
+.hljs-comment {
+  color: var(--color-mute);
+  font-style: italic;
+}
+.hljs-title,
+.hljs-function {
+  color: var(--color-blue);
+}
+.hljs-type,
+.hljs-class {
+  color: var(--color-teal);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.anim-sheet {
+  animation: sheet-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.anim-fade {
+  animation: fade-in 0.18s ease-out;
+}
+.anim-pop {
+  animation: pop-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}

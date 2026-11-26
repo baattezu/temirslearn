@@ -1,0 +1,6 @@
+AUTH_USER=temir
+# npm run hash-password -- 'пароль'
+AUTH_PASS_HASH=
+SESSION_SECRET=любая-длинная-строка
+# необязательно: без ключа ИИ работает на Workers AI
+OPENROUTER_API_KEY=
