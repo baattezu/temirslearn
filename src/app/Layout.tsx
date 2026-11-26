@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, Code2, House, LogOut, Mic, NotebookPen } from "lucide-react";
+import { BookOpen, ChevronLeft, Code2, House, LogOut, Map as MapIcon, Mic, NotebookPen } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { TRACKS } from "../content/catalog";
@@ -10,6 +10,7 @@ import { useData } from "./data";
 
 const NAV = [
   { to: "/", label: "Главная", icon: House, end: true },
+  { to: "/roadmaps", label: "Роадмап", icon: MapIcon },
   { to: "/tracks", label: "Треки", icon: BookOpen },
   { to: "/problems", label: "Задачи", icon: Code2 },
   { to: "/interview", label: "Интервью", icon: Mic },
@@ -100,7 +101,7 @@ function Sidebar() {
 function TabBar() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-      <div className="grid h-16 grid-cols-5">
+      <div className="grid h-16 grid-cols-6">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

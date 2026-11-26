@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { PageHeader } from "../../app/Layout";
 import { useData } from "../../app/data";
-import { LESSONS, ROUTES, TRACKS, lessonById } from "../../content/catalog";
+import { LESSONS, TRACKS, lessonById } from "../../content/catalog";
+import { PROFESSIONS, professionById, professionLessons } from "../../content/roadmaps";
+import { nextInProfession, stats, usePrimaryProfession } from "../roadmap/Roadmap";
 import { useApi } from "../../lib/hooks";
 import { PROBLEMS } from "../../problems";
 import { Card, Progress, SectionTitle } from "../../ui/misc";
@@ -26,11 +28,9 @@ export function Home() {
     .sort((a, b) => b[1].at - a[1].at)
     .map(([id]) => lessonById(id))
     .find((l) => l?.ready);
-  const next =
-    doing ??
-    ROUTES.flatMap((r) => r.lessons)
-      .map(lessonById)
-      .find((l) => l?.ready && progress[l.id]?.status !== "done");
+  const [primaryId] = usePrimaryProfession();
+  const primary = professionById(primaryId) ?? PROFESSIONS[0];
+  const next = doing ?? nextInProfession(primary, progress);
   const nextTrack = next && TRACKS.find((t) => t.id === next.track);
 
   return (
@@ -81,19 +81,21 @@ export function Home() {
         </section>
 
         <section>
-          <SectionTitle>Маршруты</SectionTitle>
+          <SectionTitle action={<Link to="/roadmaps" className="text-[12.5px] text-dim hover:text-ink">все профессии →</Link>}>Роадмапы</SectionTitle>
           <div className="grid gap-2.5 md:grid-cols-3 md:gap-4">
-            {ROUTES.map((r) => {
-              const total = r.lessons.length;
-              const d = r.lessons.filter((id) => progress[id]?.status === "done").length;
-              const first = r.lessons.map(lessonById).find((l) => l?.ready && progress[l.id]?.status !== "done");
+            {[primary, ...PROFESSIONS.filter((p) => p.id !== primary.id)].slice(0, 3).map((p) => {
+              const v = stats(professionLessons(p), progress);
               return (
-                <Link key={r.id} to={first ? `/l/${first.id}` : "/tracks"} className="rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
-                  <div className="font-medium text-ink">{r.title}</div>
-                  <div className="mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug text-mute">{r.blurb}</div>
-                  <Progress value={d / total} className="mt-3" />
+                <Link key={p.id} to={`/roadmaps/${p.id}`} className="rounded-2xl border border-line bg-surface p-4 transition hover:border-line-strong">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full" style={{ background: p.color }} />
+                    <span className="truncate font-medium text-ink">{p.title}</span>
+                    {p.id === primary.id && <span className="ml-auto font-mono text-[10.5px] uppercase tracking-wider text-accent">основная</span>}
+                  </div>
+                  <div className="mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug text-mute">{p.blurb}</div>
+                  <Progress value={v.done / v.total} className="mt-3" />
                   <div className="mt-1.5 font-mono text-[11px] text-mute">
-                    {d}/{total} · готово {r.lessons.filter((id) => lessonById(id)?.ready).length}
+                    {v.done}/{v.total} · готово {v.ready}
                   </div>
                 </Link>
               );

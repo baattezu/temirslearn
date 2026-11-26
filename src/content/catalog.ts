@@ -76,15 +76,20 @@ export const TRACKS: Track[] = [
     ["object-model", "Объектная модель", "Всё — объект: dict, дескрипторы, MRO"],
     ["gil-asyncio", "GIL и asyncio", "Когда потоки, когда процессы, когда event loop"],
   ]),
-  track("dsa", "Алгоритмы", "Алгоритмы и структуры данных", "Паттерны задач + свой LeetCode во вкладке «Задачи».", "var(--color-accent)", [
-    ["complexity", "Сложность", "O-нотация на практике: что реально влезет в секунду"],
-    ["hashing", "Хеш-таблицы", "Коллизии, load factor, амортизация"],
-    ["two-pointers", "Два указателя и окно", "Как убрать вложенный цикл"],
+  track("dsa", "Алгоритмы", "Алгоритмы и структуры данных", "Как структуры лежат в памяти и какие паттерны решают задачи. Свой LeetCode — во вкладке «Задачи».", "var(--color-accent)", [
+    ["complexity", "Сложность", "Что реально влезет в секунду при данном n", 15],
+    ["memory", "Массивы, списки и кэш", "Кэш-линии, промахи, амортизированный рост", 20],
+    ["hashing", "Хеш-таблицы", "Цепочки, открытая адресация, resize, hashCode", 20],
+    ["two-pointers", "Два указателя и окно", "Как убрать вложенный цикл", 15],
     ["binary-search", "Бинарный поиск без off-by-one", "Инвариант, lower_bound и поиск по ответу", 20],
-    ["trees", "Деревья", "Обходы, BST, сбалансированность"],
-    ["graphs-bfs-dfs", "Графы: BFS и DFS", "Сетки, компоненты, кратчайший путь"],
-    ["heaps", "Кучи и top-k", "Приоритетная очередь изнутри"],
-    ["dp", "Динамическое программирование", "Состояние, переход, порядок вычисления"],
+    ["trees", "Деревья", "BST, AVL, обходы, рекурсия на деревьях", 20],
+    ["heaps", "Кучи и top-k", "Дерево в массиве, sift-up/down, heapify за O(n)", 20],
+    ["graphs-bfs-dfs", "Графы: BFS и DFS", "Очередь против стека, Дейкстра, шаблоны задач", 20],
+    ["dp", "Динамическое программирование", "Состояние, переход, порядок вычисления", 25],
+    ["stack-queue", "Стек, очередь, монотонный стек", "Скобки, next greater element, кольцевой буфер"],
+    ["sorting", "Сортировки", "Quicksort, mergesort, стабильность, TimSort"],
+    ["trie-uf", "Trie и Union-Find", "Префиксы и компоненты связности"],
+    ["backtracking", "Перебор с возвратом", "Подмножества, перестановки, отсечения"],
   ]),
   track("computer", "Под капотом", "Как работает компьютер", "CPU, память, кэши, GPU — откуда берётся скорость.", "var(--color-amber)", [
     ["memory-hierarchy", "Иерархия памяти и задержки", "Числа, которые должен знать каждый инженер", 15],
@@ -121,6 +126,37 @@ export const TRACKS: Track[] = [
     ["docker", "Docker изнутри", "namespaces, cgroups, слои образов"],
     ["kubernetes", "Kubernetes", "Control plane, планировщик, сеть подов"],
   ]),
+  track("linux", "Под капотом", "Linux", "Процессы, файлы, сеть и наблюдаемость — то, на чём живёт любой сервис.", "var(--color-amber)", [
+    ["processes", "Процессы, сигналы, файловые дескрипторы", "fork/exec, зомби, ulimit, что такое fd"],
+    ["page-cache", "Файлы и page cache", "read/write, fsync, mmap, почему free показывает мало"],
+    ["sockets", "Сеть в Linux", "Сокеты, backlog, epoll, iptables/nftables"],
+    ["observability", "Метрики, логи, трейсы", "RED/USE, перцентили, SLO и алерты"],
+  ]),
+  track("web", "Языки", "Фронтенд: React и TS", "Как React рендерит, типы TS и скорость страницы.", "var(--color-blue)", [
+    ["react-render", "Как React рендерит", "Рендер, коммит, reconciliation, ключи"],
+    ["react-state", "Состояние и эффекты", "Когда useEffect не нужен, гонки, кэш запросов"],
+    ["ts-types", "Типы TypeScript", "Сужение, дженерики, условные типы"],
+    ["web-perf", "Core Web Vitals", "LCP, INP, CLS и что на них влияет"],
+  ]),
+  track("ml", "Математика", "ML и трансформеры", "От градиентного спуска до внимания и KV-кэша.", "var(--color-violet)", [
+    ["probability", "Вероятность для ML", "Распределения, матожидание, правдоподобие"],
+    ["gradient-descent", "Градиентный спуск", "Шаг, моментум, Adam, расписания"],
+    ["backprop", "Backpropagation", "Цепное правило на графе вычислений"],
+    ["attention", "Attention и трансформер", "Q, K, V, softmax, многоголовость"],
+    ["llm-inference", "Инференс LLM", "KV-кэш, батчинг, квантизация, токены/с"],
+  ]),
+  track("ai-eng", "Бэкенд", "AI-инженерия", "LLM в проде: контекст, RAG, агенты, evals.", "var(--color-teal)", [
+    ["llm-api", "LLM API и контекст", "Токены, стриминг, кэширование промпта, цена"],
+    ["rag", "RAG", "Чанки, эмбеддинги, поиск, реранкинг"],
+    ["agents", "Агенты и tool use", "Цикл инструментов, планирование, сбои"],
+    ["evals", "Evals", "Как измерять качество и ловить регрессии"],
+  ]),
+  track("embedded", "Языки", "Embedded", "Железо без ОС: прерывания, RTOS, периферия.", "var(--color-blue)", [
+    ["mmio", "Память и регистры", "Memory-mapped IO, volatile, барьеры"],
+    ["interrupts", "Прерывания", "ISR, приоритеты, что можно делать внутри"],
+    ["rtos", "RTOS", "Задачи, планировщик, инверсия приоритетов"],
+    ["peripherals", "UART, SPI, I2C, DMA", "Шины и как с ними разговаривать"],
+  ]),
   track("system-design", "Бэкенд", "System Design", "Как вести секцию: требования → оценки → схема → узкие места.", "var(--color-rose)", [
     ["approach", "Как вести секцию", "Фреймворк на 45 минут"],
     ["caching", "Кэширование", "Стратегии, инвалидация, stampede"],
@@ -132,63 +168,3 @@ export const TRACKS: Track[] = [
 export const LESSONS = TRACKS.flatMap((t) => t.lessons);
 export const lessonById = (id: string) => LESSONS.find((l) => l.id === id);
 export const trackById = (id: string) => TRACKS.find((t) => t.id === id);
-
-// Маршруты — свои сквозные пути по урокам разных треков.
-export interface Route {
-  id: string;
-  title: string;
-  blurb: string;
-  lessons: string[];
-}
-
-export const ROUTES: Route[] = [
-  {
-    id: "backend-interview",
-    title: "Бэкенд-собес · мой профиль",
-    blurb: "Java/Kotlin, Postgres, сеть, system design — то, что спросят первым.",
-    lessons: [
-      "databases/index-vs-seqscan",
-      "network/url-to-page",
-      "computer/memory-hierarchy",
-      "java/jvm-memory",
-      "java/jmm",
-      "java/spring-tx",
-      "databases/mvcc",
-      "databases/isolation",
-      "system-design/approach",
-      "system-design/caching",
-      "system-design/queues",
-    ],
-  },
-  {
-    id: "foundations",
-    title: "Фундамент",
-    blurb: "Дискретка и линал с нуля — фоновый трек по 20 минут в день.",
-    lessons: [
-      "discrete/logic",
-      "discrete/induction",
-      "linalg/vectors",
-      "linalg/matrix-as-transform",
-      "linalg/determinant",
-      "dsa/complexity",
-      "dsa/binary-search",
-      "discrete/combinatorics",
-      "discrete/graphs",
-    ],
-  },
-  {
-    id: "under-the-hood",
-    title: "Под капотом",
-    blurb: "Как реально работают железо, сеть, браузер и контейнеры.",
-    lessons: [
-      "computer/memory-hierarchy",
-      "computer/cpu-pipeline",
-      "network/url-to-page",
-      "network/tcp",
-      "browser/rendering",
-      "browser/event-loop",
-      "tools/docker",
-      "tools/kubernetes",
-    ],
-  },
-];

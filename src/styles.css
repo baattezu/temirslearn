@@ -121,21 +121,21 @@ input[type="range"] {
   padding-left: 14px;
   color: var(--color-mute);
 }
-.prose-lab table {
+.prose-lab > table {
   width: 100%;
   font-size: 14.5px;
   border-collapse: collapse;
   display: block;
   overflow-x: auto;
 }
-.prose-lab th,
-.prose-lab td {
+.prose-lab > table th,
+.prose-lab > table td {
   text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid var(--color-line);
   white-space: nowrap;
 }
-.prose-lab th {
+.prose-lab > table th {
   color: var(--color-ink);
   font-weight: 600;
 }

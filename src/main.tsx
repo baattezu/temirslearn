@@ -10,6 +10,7 @@ import { InterviewHome } from "./features/interview/InterviewHome";
 import { TrackPage } from "./features/learn/TrackPage";
 import { TracksPage } from "./features/learn/TracksPage";
 import { ProblemsPage } from "./features/problems/ProblemsPage";
+import { RoadmapPage, RoadmapsPage } from "./features/roadmap/Roadmap";
 import { api, setUnauthorizedHandler } from "./lib/api";
 import { Spinner } from "./ui/misc";
 import "./styles.css";
@@ -35,6 +36,8 @@ const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { path: "/", element: <Home /> },
+      { path: "/roadmaps", element: <RoadmapsPage /> },
+      { path: "/roadmaps/:profId", element: <RoadmapPage /> },
       { path: "/tracks", element: <TracksPage /> },
       { path: "/t/:trackId", element: <TrackPage /> },
       { path: "/l/*", element: page(() => import("./features/learn/LessonPage"), "LessonPage") },
