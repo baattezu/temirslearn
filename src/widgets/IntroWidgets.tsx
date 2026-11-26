@@ -771,12 +771,13 @@ export function TwoLines() {
       <span className="mr-1 size-2.5 rounded-full" style={{ background: color }} aria-hidden />
       {(["a", "b", "c"] as const).map((k, i) => (
         <span key={k} className="flex items-center gap-1">
-          <input
+          <Input
             type="number"
+            inputMode="numeric"
             aria-label={`${name}: ${k}`}
             value={l[k]}
             onChange={(e) => set({ ...l, [k]: Number(e.target.value) || 0 })}
-            className="h-8 w-14 rounded-lg border border-line bg-bg px-2 text-center text-ink"
+            className="h-9! w-16! px-2! text-center font-mono"
           />
           <span className="text-mute">{i === 0 ? "x +" : i === 1 ? "y =" : ""}</span>
         </span>
