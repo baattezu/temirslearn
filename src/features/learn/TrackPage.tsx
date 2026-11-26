@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Repeat } from "lucide-react";
+import { ListSkeleton } from "../../ui/Skeleton";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { PageHeader } from "../../app/Layout";
@@ -9,7 +10,9 @@ import { hasBank, loadBank, type QA } from "../../content/questions";
 import { useIsPhone } from "../../lib/hooks";
 import { LEVELS, heatColor, heatOpacity, indexOf, masteryOf, type Mastery } from "../../lib/mastery";
 import { cx } from "../../ui/cx";
-import { Spinner } from "../../ui/misc";
+import { Chip } from "../../ui/Chip";
+import { LessonIcon } from "../../ui/LessonIcon";
+
 import { Segmented } from "../../ui/Segmented";
 import { TrackIcon } from "../../ui/TrackIcon";
 import { QuestionList } from "./QuestionList";
@@ -117,14 +120,17 @@ const ROW = 92;
 function Path({ track }: { track: Track }) {
   const data = useData();
   const phone = useIsPhone();
+  const topics = useMemo(() => [...new Set(track.lessons.map((l) => l.topic).filter((t): t is string => !!t))], [track]);
+  const [topic, setTopic] = useState<string | null>(null);
+  const shown = topic ? track.lessons.filter((l) => l.topic === topic) : track.lessons;
   const amp = phone ? 22 : 70;
   const nodeX = (i: number) => Math.round(Math.sin(i * 0.95) * amp);
-  const firstUnstarted = track.lessons.find((l) => l.ready && !data.reviews[l.id] && data.progress[l.id]?.status !== "done");
+  const firstUnstarted = shown.find((l) => l.ready && !data.reviews[l.id] && data.progress[l.id]?.status !== "done");
   const width = phone ? 96 : 200;
   const cx0 = width / 2;
 
   // плавная кривая через центры узлов
-  const d = track.lessons
+  const d = shown
     .map((_, i) => {
       const x = cx0 + nodeX(i);
       const y = i * ROW + 30;
@@ -137,13 +143,28 @@ function Path({ track }: { track: Track }) {
 
   return (
     <div>
+      {topics.length > 1 && (
+        <div className="-mx-5 mb-4 flex gap-1.5 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
+          <Chip active={!topic} onClick={() => setTopic(null)}>
+            Все · {track.lessons.length}
+          </Chip>
+          {topics.map((t) => {
+            const first = track.lessons.find((l) => l.topic === t)!;
+            return (
+              <Chip key={t} active={topic === t} onClick={() => setTopic(topic === t ? null : t)} icon={<LessonIcon id={first.id} trackColor={track.color} className="size-3.5" />}>
+                {t} · {track.lessons.filter((l) => l.topic === t).length}
+              </Chip>
+            );
+          })}
+        </div>
+      )}
       <Legend />
-      <div className="relative mt-4" style={{ height: track.lessons.length * ROW }}>
-        <svg className="pointer-events-none absolute left-0 top-0" width={width} height={track.lessons.length * ROW} aria-hidden>
+      <div className="relative mt-4" style={{ height: shown.length * ROW }}>
+        <svg className="pointer-events-none absolute left-0 top-0" width={width} height={shown.length * ROW} aria-hidden>
           <path d={d} fill="none" stroke="var(--color-line-strong)" strokeWidth={3} strokeDasharray="2 9" strokeLinecap="round" />
         </svg>
-        {track.lessons.map((l, i) => (
-          <PathNode key={l.id} lesson={l} index={i} x={cx0 + nodeX(i)} isNext={l.id === firstUnstarted?.id} labelLeft={width + 8} size={phone ? 48 : 58} />
+        {shown.map((l, i) => (
+          <PathNode key={l.id} lesson={l} index={track.lessons.indexOf(l)} slot={i} trackColor={track.color} x={cx0 + nodeX(i)} isNext={l.id === firstUnstarted?.id} labelLeft={width + 8} size={phone ? 48 : 58} />
         ))}
       </div>
     </div>
@@ -173,11 +194,11 @@ function Legend() {
   );
 }
 
-function PathNode({ lesson, index, x, isNext, labelLeft, size }: { lesson: Lesson; index: number; x: number; isNext: boolean; labelLeft: number; size: number }) {
+function PathNode({ lesson, index, slot, x, isNext, labelLeft, size, trackColor }: { lesson: Lesson; index: number; slot: number; x: number; isNext: boolean; labelLeft: number; size: number; trackColor: string }) {
   const data = useData();
   const m = masteryOf(lesson.id, data);
   const st = data.progress[lesson.id]?.status;
-  const top = index * ROW;
+  const top = slot * ROW;
 
   const node = (
     <div
@@ -216,7 +237,10 @@ function PathNode({ lesson, index, x, isNext, labelLeft, size }: { lesson: Lesso
 
   const label = (
     <div className="min-w-0">
-      <div className={cx("text-[15px] font-medium leading-snug", lesson.ready ? "text-ink" : "text-mute")}>{lesson.title}</div>
+      <div className={cx("flex items-start gap-2 text-[15px] font-medium leading-snug", lesson.ready ? "text-ink" : "text-mute")}>
+        <LessonIcon id={lesson.id} trackColor={lesson.ready ? trackColor : "var(--color-mute)"} className="mt-[3px] size-4 shrink-0" />
+        <span className="min-w-0">{lesson.title}</span>
+      </div>
       <div className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-mute">{lesson.summary}</div>
       <NodeStatus m={m} ready={lesson.ready} isNext={isNext} />
     </div>
@@ -234,7 +258,14 @@ function PathNode({ lesson, index, x, isNext, labelLeft, size }: { lesson: Lesso
   );
 
   return lesson.ready ? (
-    <Link to={`/l/${lesson.id}`} className="group absolute inset-x-0 block" style={{ top, height: ROW }}>
+    <Link
+      to={`/l/${lesson.id}`}
+      onMouseEnter={() => void lesson.load?.()}
+      onTouchStart={() => void lesson.load?.()}
+      onFocus={() => void lesson.load?.()}
+      className="group absolute inset-x-0 block"
+      style={{ top, height: ROW }}
+    >
       {body}
     </Link>
   ) : (
@@ -267,7 +298,7 @@ function Bank({ track }: { track: Track }) {
     void loadBank(track.id).then(setItems);
   }, [track.id]);
   const lessons = useMemo(() => track.lessons.filter((l) => items?.some((q) => q.lesson === l.slug)), [items, track]);
-  if (!items) return <div className="flex justify-center py-10 text-mute"><Spinner /></div>;
+  if (!items) return <ListSkeleton rows={6} height={54} />;
   const shown = lesson === "all" ? items : items.filter((q) => q.lesson === lesson);
   return (
     <div>

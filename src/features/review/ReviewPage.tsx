@@ -1,4 +1,5 @@
 import { Check, ChevronRight, Eye, PartyPopper } from "lucide-react";
+import { SkeletonText } from "../../ui/Skeleton";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { SRS_MODES, type SrsMode } from "../../../shared/srs";
@@ -10,7 +11,6 @@ import { LEVELS, dueLessons, heatColor, heatOpacity, indexOf, masteryOf } from "
 import { Button } from "../../ui/Button";
 import { Markdown } from "../../ui/Markdown";
 import { Segmented } from "../../ui/Segmented";
-import { Spinner } from "../../ui/misc";
 import { TrackIcon } from "../../ui/TrackIcon";
 
 export function ReviewPage() {
@@ -115,7 +115,7 @@ function ReviewCard({ lessonId, n, of, onNext }: { lessonId: string; n: number; 
 
       <div className="mt-4">
         {qs === null ? (
-          <div className="flex justify-center py-6 text-mute"><Spinner /></div>
+          <SkeletonText lines={3} />
         ) : qs.length ? (
           <>
             <div className="mb-2 text-[13.5px] text-dim">Ответь вслух или в голове, не подглядывая:</div>

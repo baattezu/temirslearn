@@ -7,7 +7,14 @@ type ProgressMap = Record<string, { status: Status; at: number }>;
 type SubmissionMap = Record<string, { attempts: number; solved: boolean; lastAt: number }>;
 export type ReviewMap = Record<string, ReviewState>;
 export type PracticeMap = Record<string, { attempts: number; solved: number; lastAt: number }>;
-type Settings = { srsMode?: SrsMode; assistant?: { seen?: string; muted?: boolean } };
+export type Settings = {
+  srsMode?: SrsMode;
+  assistant?: { seen?: string; muted?: boolean; hidden?: boolean };
+  lessonFont?: "s" | "m" | "l";
+  preQuestions?: boolean;
+  reduceMotion?: boolean;
+  dailyGoal?: number;
+};
 type InterviewListItem = { id: string; score: number | null; topic: string | null; finished_at: number | null; created_at: number };
 
 interface Data {
@@ -92,7 +99,7 @@ export function DataProvider({ me, children }: { me: { user: string; ai: string 
     return out;
   }, [interviews]);
 
-  const value: Data = {
+  const value: Data = useMemo(() => ({
     progress,
     submissions,
     reviews,
@@ -108,7 +115,7 @@ export function DataProvider({ me, children }: { me: { user: string; ai: string 
     refreshSubmissions,
     refreshPractice,
     refreshTopics,
-  };
+  }), [progress, submissions, reviews, practice, topicScores, settings, settingsLoaded, me, setStatus, review, setSetting, refreshSubmissions, refreshPractice, refreshTopics]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

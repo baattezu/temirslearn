@@ -12,20 +12,14 @@ import { TracksPage } from "./features/learn/TracksPage";
 import { ProblemsPage } from "./features/problems/ProblemsPage";
 import { RoadmapPage, RoadmapsPage } from "./features/roadmap/Roadmap";
 import { api, setUnauthorizedHandler } from "./lib/api";
-import { Spinner } from "./ui/misc";
+import { PageSkeleton } from "./ui/Skeleton";
 import "./styles.css";
 
 // Тяжёлые страницы (CodeMirror, markdown, MDX) — отдельными чанками
 const page = <T,>(load: () => Promise<T>, name: keyof T) => {
   const C = lazy(() => load().then((m) => ({ default: m[name] as ComponentType })));
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[60dvh] items-center justify-center text-mute">
-          <Spinner />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <C />
     </Suspense>
   );
@@ -48,11 +42,20 @@ const router = createBrowserRouter([
       { path: "/review", element: page(() => import("./features/review/ReviewPage"), "ReviewPage") },
       { path: "/practice", element: page(() => import("./features/practice/Practice"), "PracticeList") },
       { path: "/practice/:genId", element: page(() => import("./features/practice/Practice"), "PracticePage") },
+      { path: "/settings", element: page(() => import("./features/settings/SettingsPage"), "SettingsPage") },
       { path: "/notes", element: page(() => import("./features/notes/NotesPage"), "NotesPage") },
       { path: "*", element: <Home /> },
     ],
   },
 ]);
+
+// после загрузки — тихо подтянуть самые частые чанки, чтобы переходы были мгновенными
+const idle = (fn: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 1500));
+idle(() => {
+  void import("./features/learn/LessonPage");
+  void import("./features/review/ReviewPage");
+  void import("./features/practice/Practice");
+});
 
 function App() {
   const [me, setMe] = useState<{ user: string; ai: string } | null | undefined>(undefined);
@@ -68,8 +71,9 @@ function App() {
 
   if (me === undefined)
     return (
-      <div className="flex min-h-dvh items-center justify-center text-mute">
-        <Spinner />
+      <div className="min-h-dvh md:pl-[248px]">
+        <div className="fixed inset-y-0 left-0 hidden w-[248px] border-r border-line bg-surface/60 md:block" />
+        <PageSkeleton />
       </div>
     );
   if (me === null)

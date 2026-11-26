@@ -1,6 +1,7 @@
 import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
+import { sql } from "@codemirror/lang-sql";
 import { syntaxHighlighting } from "@codemirror/language";
 import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
@@ -37,13 +38,13 @@ export function CodeEditor({
 }: {
   value: string;
   onChange: (v: string) => void;
-  lang: "python" | "javascript" | "markdown";
+  lang: "python" | "javascript" | "sql" | "markdown";
   className?: string;
   placeholder?: string;
   minHeight?: string;
 }) {
   const extensions = useMemo(() => {
-    const l = lang === "python" ? python() : lang === "javascript" ? javascript() : markdown();
+    const l = lang === "python" ? python() : lang === "javascript" ? javascript() : lang === "sql" ? sql() : markdown();
     const base = [l, theme, syntaxHighlighting(oneDarkHighlightStyle)];
     return lang === "markdown" ? [...base, proseTheme, EditorView.lineWrapping] : base;
   }, [lang]);

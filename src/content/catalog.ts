@@ -11,6 +11,8 @@ export interface Lesson {
   summary: string;
   minutes: number;
   ready: boolean;
+  /** раздел внутри трека — для фильтра (Java: Язык, JVM, Kotlin, Spring, ORM…) */
+  topic?: string;
   load?: () => Promise<{ default: ComponentType }>;
 }
 
@@ -23,7 +25,7 @@ export interface Track {
   lessons: Lesson[];
 }
 
-type Plan = [slug: string, title: string, summary: string, minutes?: number];
+type Plan = [slug: string, title: string, summary: string, minutes?: number, topic?: string];
 
 const modules = import.meta.glob<{ default: ComponentType }>("./lessons/**/*.mdx");
 
@@ -34,9 +36,9 @@ function track(id: string, group: string, title: string, blurb: string, color: s
     title,
     blurb,
     color,
-    lessons: plan.map(([slug, t, summary, minutes = 15]) => {
+    lessons: plan.map(([slug, t, summary, minutes = 15, topic]) => {
       const load = modules[`./lessons/${id}/${slug}.mdx`];
-      return { id: `${id}/${slug}`, track: id, slug, title: t, summary, minutes, ready: !!load, load };
+      return { id: `${id}/${slug}`, track: id, slug, title: t, summary, minutes, ready: !!load, load, topic };
     }),
   };
 }
@@ -71,14 +73,20 @@ const RAW: Track[] = [
     ["move", "Move-семантика", "lvalue/rvalue, копирование против перемещения"],
     ["stl", "STL контейнеры изнутри", "vector, unordered_map, map — сложность и память"],
   ]),
-  track("java", "langs", "Java и JVM", "То, что спрашивают на бэкенд-собесах: память, GC, конкурентность.", "var(--color-blue)", [
-    ["passport", "Паспорт Java", "Откуда взялась, философия, где живёт и где её нет", 20],
-    ["syntax", "Синтаксис за вечер", "Типы, классы, коллекции, исключения, лямбды — тур с примерами", 30],
-
-    ["jvm-memory", "Память JVM", "Heap, stack, metaspace, escape analysis"],
-    ["gc", "Сборщики мусора", "G1, ZGC, паузы и поколения"],
-    ["jmm", "Java Memory Model", "happens-before, volatile, публикация объектов"],
-    ["spring-tx", "Транзакции в Spring", "Прокси, propagation, почему @Transactional не сработал"],
+  track("java", "langs", "Java, Kotlin, Spring", "Всё JVM-бэкенда в одном месте: язык, JVM и GC, многопоточность, Kotlin, Spring и ORM.", "var(--color-blue)", [
+    ["passport", "Паспорт Java", "Откуда взялась, философия, где живёт и где её нет", 20, "Язык"],
+    ["syntax", "Синтаксис за вечер", "Типы, классы, коллекции, исключения, лямбды — тур с примерами", 30, "Язык"],
+    ["kotlin", "Kotlin для Java-разработчика", "Null-безопасность, data-классы, корутины — и почему Android и Spring его любят", 25, "Kotlin"],
+    ["jvm-memory", "Память JVM", "Heap, stack, metaspace, escape analysis", 15, "JVM"],
+    ["gc", "Сборщики мусора", "G1, ZGC, паузы и поколения", 15, "JVM"],
+    ["jmm", "Java Memory Model", "happens-before, volatile, публикация объектов", 15, "Многопоточность"],
+    ["concurrency", "java.util.concurrent", "Пулы потоков, локи, атомики, CompletableFuture — что брать и когда", 25, "Многопоточность"],
+    ["virtual-threads", "Виртуальные потоки", "Loom: миллион потоков, carrier-потоки и pinning", 20, "Многопоточность"],
+    ["spring-core", "Spring изнутри", "IoC-контейнер, жизненный цикл бина, прокси и AOP", 25, "Spring"],
+    ["spring-boot", "Spring Boot", "Автоконфигурация, стартеры, профили, Actuator", 20, "Spring"],
+    ["spring-tx", "Транзакции в Spring", "Прокси, propagation, почему @Transactional не сработал", 15, "Spring"],
+    ["jpa", "JPA и Hibernate", "Persistence context, состояния сущности, dirty checking, flush", 25, "ORM"],
+    ["n-plus-one", "N+1 и загрузка связей", "Lazy и eager, fetch join, entity graph, batch size", 20, "ORM"],
   ]),
   track("python", "langs", "Python", "Объектная модель, GIL, asyncio.", "var(--color-blue)", [
     ["passport", "Паспорт Python", "Гвидо, Zen of Python, где Python — король и где он не нужен", 20],

@@ -1,5 +1,5 @@
-import { BookOpen, ChevronDown, ChevronLeft, Code2, House, LogOut, Map as MapIcon, Mic, NotebookPen, PencilRuler, Repeat } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { BookOpen, ChevronDown, Settings, ChevronLeft, Code2, House, LogOut, Map as MapIcon, Mic, NotebookPen, PencilRuler, Repeat } from "lucide-react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { GROUPS, trackById } from "../content/catalog";
 import { dueLessons, heatColor, heatOpacity, indexOf, masteryOf } from "../lib/mastery";
@@ -23,6 +23,10 @@ const ROOTS = new Set(NAV.map((n) => n.to));
 
 export function Layout() {
   const phone = useIsPhone();
+  const { settings } = useData();
+  useEffect(() => {
+    document.documentElement.classList.toggle("reduce-motion", !!settings.reduceMotion);
+  }, [settings.reduceMotion]);
   const { pathname } = useLocation();
   const isRoot = ROOTS.has(pathname);
 
@@ -79,8 +83,15 @@ function Sidebar() {
           <SideGroup key={g.id} id={g.id} title={g.title} trackIds={g.tracks} />
         ))}
       </div>
-      <div className="flex items-center justify-between border-t border-line px-4 py-3">
-        <span className="text-[13px] text-mute">temir</span>
+      <div className="flex items-center justify-between border-t border-line px-3 py-2.5">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => cx("flex h-9 items-center gap-2.5 rounded-lg px-2 text-[13.5px] transition", isActive ? "bg-raised text-ink" : "text-dim hover:bg-raised/60 hover:text-ink")}
+        >
+          <img src="/assistant/face.png" alt="" className="pixel size-6 rounded-full border border-line object-cover object-top" />
+          Настройки
+          <Settings className="size-3.5 text-mute" />
+        </NavLink>
         <IconButton label="Выйти" onClick={logout}>
           <LogOut className="size-4" />
         </IconButton>

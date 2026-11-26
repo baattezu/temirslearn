@@ -7,6 +7,8 @@ import { api } from "../../lib/api";
 import { LEVELS, heatColor, masteryOf } from "../../lib/mastery";
 import { ErrorNote } from "../../ui/misc";
 import { useHighlights } from "./Highlights";
+import { LessonSkeleton, Skeleton } from "../../ui/Skeleton";
+import { cx } from "../../ui/cx";
 import { QuestionList } from "./QuestionList";
 import { PageHeader } from "../../app/Layout";
 import { useData } from "../../app/data";
@@ -15,7 +17,6 @@ import { mdxComponents } from "../../content/mdx";
 import { useApi, useIsPhone } from "../../lib/hooks";
 import { Button, IconButton } from "../../ui/Button";
 import { Sheet } from "../../ui/Sheet";
-import { Spinner } from "../../ui/misc";
 import { NoteEditor, type Note } from "../notes/NoteEditor";
 
 export function LessonPage() {
@@ -23,7 +24,7 @@ export function LessonPage() {
   const id = params["*"] ?? "";
   const lesson = lessonById(id);
   const track = lesson && trackById(lesson.track);
-  const { progress, setStatus } = useData();
+  const { progress, setStatus, settings } = useData();
   const phone = useIsPhone();
   const [Content, setContent] = useState<ComponentType | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -81,15 +82,15 @@ export function LessonPage() {
               <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-tight text-ink">{lesson.title}</h1>
             </div>
           )}
-          {questions.length > 0 && <BeforeReading questions={questions} />}
+          {questions.length > 0 && settings.preQuestions !== false && <BeforeReading questions={questions} />}
           {Content ? (
             <MDXProvider components={mdxComponents}>
-              <div className="prose-lab" ref={articleRef}>
+              <div className={cx("prose-lab", settings.lessonFont === "s" && "font-s", settings.lessonFont === "l" && "font-l")} ref={articleRef}>
                 <Content />
               </div>
             </MDXProvider>
           ) : (
-            <div className="flex justify-center py-20 text-mute"><Spinner /></div>
+            <LessonSkeleton />
           )}
 
           {questions.length > 0 && Content && (
@@ -150,7 +151,7 @@ export function LessonPage() {
 
 function LessonNotes({ lessonId, title }: { lessonId: string; title: string }) {
   const { data, loading } = useApi<Note[]>(`/notes?lesson=${encodeURIComponent(lessonId)}`);
-  if (loading && !data) return <div className="flex justify-center py-10 text-mute"><Spinner /></div>;
+  if (loading && !data) return <Skeleton className="h-full min-h-64 rounded-2xl" />;
   return (
     <NoteEditor
       note={data?.[0] ?? null}

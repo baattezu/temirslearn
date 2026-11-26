@@ -1,4 +1,4 @@
-import { ArrowRight, Code2, Mic, PencilRuler, Play, Repeat } from "lucide-react";
+import { ArrowRight, Code2, Flame, Mic, PencilRuler, Play, Repeat, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { PageHeader } from "../../app/Layout";
@@ -38,7 +38,17 @@ export function Home() {
 
   return (
     <div className="pb-12">
-      <PageHeader eyebrow={greeting()} title="Что учим сегодня" />
+      <PageHeader
+        eyebrow={greeting()}
+        title="Что учим сегодня"
+        actions={
+          <Link to="/settings" aria-label="Настройки" className="flex size-10 items-center justify-center rounded-xl text-mute hover:bg-raised hover:text-ink md:hidden">
+            <Settings className="size-5" />
+          </Link>
+        }
+      >
+        <DailyGoal days={activity ?? []} goal={data.settings.dailyGoal ?? 3} />
+      </PageHeader>
 
       <div className="grid gap-6 px-5 pt-4 md:px-10">
         {next && (
@@ -165,6 +175,36 @@ function UnderstandingCard({ index, total, due, primaryTitle }: { index: number;
         </div>
         <ArrowRight className="size-4 text-mute" />
       </Link>
+    </div>
+  );
+}
+
+/** Цель на день: сколько действий сегодня и серия дней подряд. */
+function DailyGoal({ days, goal }: { days: { day: string; count: number }[]; goal: number }) {
+  const today = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+  const map = new Map(days.map((d) => [d.day, d.count]));
+  const done = map.get(today) ?? 0;
+  let streak = 0;
+  const d = new Date(today + "T00:00:00Z");
+  if (!done) d.setUTCDate(d.getUTCDate() - 1); // сегодня ещё не начинал — серия не обнуляется до конца дня
+  while ((map.get(d.toISOString().slice(0, 10)) ?? 0) > 0) {
+    streak++;
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  const pct = Math.min(1, done / goal);
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-mute">
+      <span className="flex items-center gap-2">
+        <span className="relative h-1.5 w-24 overflow-hidden rounded-full bg-line">
+          <span className="absolute inset-y-0 left-0 rounded-full bg-accent transition-all" style={{ width: `${pct * 100}%` }} />
+        </span>
+        <span className={done >= goal ? "text-accent" : ""}>
+          сегодня {done} из {goal}
+        </span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Flame className={streak ? "size-4 text-amber" : "size-4"} /> {streak} {streak % 10 === 1 && streak % 100 !== 11 ? "день" : streak % 10 >= 2 && streak % 10 <= 4 && (streak % 100 < 10 || streak % 100 >= 20) ? "дня" : "дней"} подряд
+      </span>
     </div>
   );
 }

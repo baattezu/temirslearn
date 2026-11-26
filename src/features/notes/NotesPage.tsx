@@ -1,4 +1,5 @@
 import { BookOpen, Plus, Search, Trash2 } from "lucide-react";
+import { ListSkeleton } from "../../ui/Skeleton";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { PageHeader } from "../../app/Layout";
@@ -9,7 +10,7 @@ import { useApi, useIsPhone } from "../../lib/hooks";
 import { Button, IconButton } from "../../ui/Button";
 import { Input } from "../../ui/Field";
 import { Sheet } from "../../ui/Sheet";
-import { Empty, Spinner } from "../../ui/misc";
+import { Empty } from "../../ui/misc";
 import { cx } from "../../ui/cx";
 import { NoteEditor, type Note } from "./NoteEditor";
 
@@ -67,9 +68,7 @@ export function NotesPage() {
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по заметкам" className="pl-10" />
           </div>
           {loading && !data ? (
-            <div className="flex justify-center py-10 text-mute">
-              <Spinner />
-            </div>
+            <ListSkeleton rows={5} height={64} />
           ) : !list.length ? (
             <Empty title={q ? "Ничего не нашлось" : "Заметок пока нет"}>
               Конспекты уроков появляются здесь сами. Свободную заметку создай кнопкой «Новая».

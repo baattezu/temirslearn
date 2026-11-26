@@ -1,4 +1,5 @@
-import { ArrowRight, ChevronRight, Mic } from "lucide-react";
+import { ArrowRight, ChevronRight, Clock3, Languages, Mic } from "lucide-react";
+import { LevelIcon, RoleIcon } from "./roleIcons";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { LANGS, LEVELS, ROLES, type Lang, type Level, type RoleId } from "../../../shared/interview";
@@ -57,7 +58,7 @@ export function InterviewHome() {
               <Label>Роль</Label>
               <div className="flex flex-wrap gap-2">
                 {ROLES.map((r) => (
-                  <Chip key={r.id} active={cfg.role === r.id} onClick={() => setCfg({ ...cfg, role: r.id })}>
+                  <Chip key={r.id} active={cfg.role === r.id} onClick={() => setCfg({ ...cfg, role: r.id })} icon={<RoleIcon role={r.id} />}>
                     {r.label}
                   </Chip>
                 ))}
@@ -67,15 +68,15 @@ export function InterviewHome() {
             <div className="grid gap-5 sm:grid-cols-3">
               <div>
                 <Label>Уровень</Label>
-                <Segmented block value={cfg.level} onChange={(level) => setCfg({ ...cfg, level })} options={LEVELS.map((l) => ({ value: l.id, label: l.label }))} />
+                <Segmented block value={cfg.level} onChange={(level) => setCfg({ ...cfg, level })} options={LEVELS.map((l) => ({ value: l.id, label: <span className="flex items-center justify-center gap-1.5"><LevelIcon level={l.id} className="size-3.5" />{l.label}</span> }))} />
               </div>
               <div>
                 <Label>Язык</Label>
-                <Segmented block value={cfg.lang} onChange={(lang) => setCfg({ ...cfg, lang })} options={LANGS.map((l) => ({ value: l.id, label: l.id === "en" ? "EN" : "RU" }))} />
+                <Segmented block value={cfg.lang} onChange={(lang) => setCfg({ ...cfg, lang })} options={LANGS.map((l) => ({ value: l.id, label: <span className="flex items-center justify-center gap-1.5"><Languages className="size-3.5" />{l.id === "en" ? "EN" : "RU"}</span> }))} />
               </div>
               <div>
                 <Label>Вопросов</Label>
-                <Segmented block value={cfg.count} onChange={(count) => setCfg({ ...cfg, count })} options={[3, 5, 8].map((n) => ({ value: n, label: String(n) }))} />
+                <Segmented block value={cfg.count} onChange={(count) => setCfg({ ...cfg, count })} options={[3, 5, 8].map((n) => ({ value: n, label: <span className="flex items-center justify-center gap-1.5" title={`≈ ${n * 3} минут`}><Clock3 className="size-3.5" />{n}</span> }))} />
               </div>
             </div>
             {error && <ErrorNote>{error}</ErrorNote>}
@@ -102,6 +103,7 @@ export function InterviewHome() {
                   to={`/interview/${h.id}`}
                   className={cx("flex items-center gap-3 bg-surface px-4 py-3 transition hover:bg-raised", i > 0 && "border-t border-line")}
                 >
+                  <RoleIcon role={h.role} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[14px] font-medium text-ink">
                       {h.topic ? `Зачёт: ${(JSON.parse(h.topic) as { title: string }).title}` : roleLabel(h.role)}

@@ -35,10 +35,11 @@ interface Ctx {
   practice: PracticeMap;
 }
 
-const problemsOf = (lessonId: string) =>
-  Object.values(SEGMENTS)
-    .filter((s) => s.lessons.includes(lessonId))
-    .flatMap((s) => s.problems ?? []);
+// урок → задачи его сегментов: считаем один раз, а не на каждый вызов
+const PROBLEMS_OF = new Map<string, string[]>();
+for (const seg of Object.values(SEGMENTS))
+  for (const l of seg.lessons) PROBLEMS_OF.set(l, [...(PROBLEMS_OF.get(l) ?? []), ...(seg.problems ?? [])]);
+const problemsOf = (lessonId: string) => PROBLEMS_OF.get(lessonId) ?? [];
 
 function appliedFor(lessonId: string, ctx: Ctx) {
   const probs = problemsOf(lessonId);
@@ -47,7 +48,26 @@ function appliedFor(lessonId: string, ctx: Ctx) {
   return gens.length > 0 && gens.reduce((a, g) => a + (ctx.practice[g.id]?.solved ?? 0), 0) >= 3;
 }
 
+// Кэш по объекту контекста: провайдер данных пересоздаёт его только при изменении данных,
+// поэтому сайдбар, путь трека и карточки не пересчитывают одно и то же по сотне раз за рендер.
+let cacheCtx: Ctx | null = null;
+let cacheAt = 0;
+const cache = new Map<string, Mastery>();
+
 export function masteryOf(lessonId: string, ctx: Ctx, now = Date.now()): Mastery {
+  if (ctx !== cacheCtx || now - cacheAt > 60_000) {
+    cacheCtx = ctx;
+    cacheAt = now;
+    cache.clear();
+  }
+  const hit = cache.get(lessonId);
+  if (hit) return hit;
+  const m = computeMastery(lessonId, ctx, now);
+  cache.set(lessonId, m);
+  return m;
+}
+
+function computeMastery(lessonId: string, ctx: Ctx, now: number): Mastery {
   const r: ReviewState | undefined = ctx.reviews[lessonId];
   const explained = (ctx.topicScores[lessonId] ?? 0) >= 70;
   const applied = appliedFor(lessonId, ctx);

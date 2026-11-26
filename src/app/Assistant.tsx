@@ -14,20 +14,16 @@ import { useData } from "./data";
 
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 
-/** Пиксельный спрайт: 4 кадра дыхания по 64×120. */
-function Sprite({ scale = 0.62 }: { scale?: number }) {
+/** Лицо-аватар: пиксель-арт с лендинга verylabs.dev. */
+function Face({ size }: { size: number }) {
   return (
-    <div
-      className="pixel anim-sprite"
-      style={{
-        width: 64 * scale,
-        height: 120 * scale,
-        backgroundImage: "url(/assistant/temirkhan.png)",
-        backgroundSize: `${256 * scale}px ${120 * scale}px`,
-        ["--sprite-w" as string]: `${-256 * scale}px`,
-      }}
+    <span
+      className="pixel block overflow-hidden rounded-full border-2 border-line-strong bg-raised shadow-lg shadow-black/40"
+      style={{ width: size, height: size }}
       aria-hidden
-    />
+    >
+      <img src="/assistant/face.png" alt="" className="pixel size-full object-cover object-top" draggable={false} />
+    </span>
   );
 }
 
@@ -74,7 +70,7 @@ export function Assistant() {
     .find((l) => l?.ready);
 
   // где не мешать
-  const hidden = /^\/(interview\/|problems\/)/.test(pathname);
+  const hidden = conf.hidden || /^\/(interview\/|problems\/|settings)/.test(pathname);
   if (hidden) return null;
 
   const isRoot = ["/", "/roadmaps", "/tracks", "/problems", "/interview", "/notes"].includes(pathname);
@@ -94,7 +90,7 @@ export function Assistant() {
           aria-label="Помощник"
         >
           <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
-            <img src="/assistant/head.png" alt="" className="pixel size-8 rounded-lg bg-bg" />
+            <Face size={34} />
             <div className="min-w-0 flex-1">
               <div className="text-[13.5px] font-semibold text-ink">Темирхан</div>
               <div className="text-[11.5px] text-mute">индекс понимания: <span className="font-mono text-dim">{idx}</span></div>
@@ -171,9 +167,8 @@ export function Assistant() {
             {due.length}
           </span>
         )}
-        <span className="absolute bottom-0 h-3 w-10 rounded-[50%] bg-black/50 blur-[2px]" aria-hidden />
-        <span className="relative transition group-hover:-translate-y-0.5">
-          <Sprite scale={phone ? 0.5 : 0.62} />
+        <span className="relative transition duration-200 group-hover:-translate-y-0.5 group-active:scale-95">
+          <Face size={phone ? 46 : 54} />
         </span>
       </button>
     </div>

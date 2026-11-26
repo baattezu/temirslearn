@@ -1,0 +1,1 @@
+[{"args":["HOH"],"expected":"1 молекул(ы): в каждой тройке 2 H и 1 O"},{"args":["OOHHHH"],"expected":"2 молекул(ы): в каждой тройке 2 H и 1 O"},{"args":["HHHHHHOOO"],"expected":"3 молекул(ы): в каждой тройке 2 H и 1 O"},{"args":["OHHOHHOHHHHO"],"expected":"4 молекул(ы): в каждой тройке 2 H и 1 O"}]

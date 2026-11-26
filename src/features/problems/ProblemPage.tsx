@@ -7,20 +7,17 @@ import { lessonById } from "../../content/catalog";
 import { api } from "../../lib/api";
 import { ago, plural } from "../../lib/format";
 import { useApi, useIsPhone, useLocalStorage } from "../../lib/hooks";
-import { problemById, type Lang, type Problem } from "../../problems";
+import { langsOf, loadTests, problemById, testCount, type Lang, type Problem } from "../../problems";
 import { Button } from "../../ui/Button";
 import { CodeEditor } from "../../ui/CodeEditor";
 import { Markdown } from "../../ui/Markdown";
 import { Segmented } from "../../ui/Segmented";
 import { Badge, Spinner } from "../../ui/misc";
 import { cx } from "../../ui/cx";
-import { DIFF } from "./ProblemsPage";
+import { DiffBadge, TopicIcon } from "./ProblemsPage";
 import { runTests, warmPython, type RunOutcome, type TestResult } from "./runner";
 
-const LANGS: { value: Lang; label: string }[] = [
-  { value: "python", label: "Python" },
-  { value: "javascript", label: "JavaScript" },
-];
+const LANG_LABEL: Record<Lang, string> = { python: "Python", javascript: "JavaScript", sql: "SQL" };
 
 export function ProblemPage() {
   const { problemId = "" } = useParams();
@@ -32,9 +29,12 @@ export function ProblemPage() {
 function Workspace({ problem }: { problem: Problem }) {
   const phone = useIsPhone();
   const { refreshSubmissions, submissions } = useData();
-  const [lang, setLang] = useLocalStorage<Lang>("tl.lang", "python");
+  const langs = langsOf(problem);
+  const [preferred, setLang] = useLocalStorage<Lang>("tl.lang", "python");
+  // SQL- и async-задачи живут в одном языке — берём доступный
+  const lang: Lang = langs.includes(preferred) ? preferred : langs[0];
   const [codes, setCodes] = useLocalStorage<Partial<Record<Lang, string>>>(`tl.code.${problem.id}`, {});
-  const code = codes[lang] ?? problem.starter[lang];
+  const code = codes[lang] ?? problem.starter[lang] ?? "";
   const [running, setRunning] = useState<"run" | "submit" | null>(null);
   const [outcome, setOutcome] = useState<(RunOutcome & { all: boolean }) | null>(null);
   const [tab, setTab] = useState<"task" | "code" | "result">("task");
@@ -42,8 +42,12 @@ function Workspace({ problem }: { problem: Problem }) {
   const lesson = problem.lesson ? lessonById(problem.lesson) : undefined;
 
   useEffect(() => {
-    if (lang === "python") void warmPython();
+    if (lang === "python" || lang === "sql") void warmPython(lang);
   }, [lang]);
+  // тесты подтягиваем заранее, пока человек читает условие
+  useEffect(() => {
+    void loadTests(problem).catch(() => {});
+  }, [problem]);
 
   const run = async (all: boolean) => {
     setRunning(all ? "submit" : "run");
@@ -53,7 +57,7 @@ function Workspace({ problem }: { problem: Problem }) {
       setOutcome({ ...res, all });
       if (all) {
         const passed = res.kind === "ok" ? res.passed : 0;
-        await api("/submissions", { method: "POST", json: { problem_id: problem.id, lang, code, passed, total: problem.tests.length } });
+        await api("/submissions", { method: "POST", json: { problem_id: problem.id, lang, code, passed, total: testCount(problem) } });
         await refreshSubmissions();
       }
     } finally {
@@ -78,8 +82,12 @@ function Workspace({ problem }: { problem: Problem }) {
       {leftTab === "task" || phone ? (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge tone={DIFF[problem.difficulty].tone}>{problem.difficulty}</Badge>
-            {problem.tags.map((t) => (
+            <DiffBadge d={problem.difficulty} />
+            <Badge>
+              <TopicIcon topic={problem.topic} className="size-3" /> {problem.topic}
+            </Badge>
+            {problem.lc && <Badge>LC {problem.lc}</Badge>}
+            {problem.tags.filter((t) => t !== problem.topic).map((t) => (
               <Badge key={t}>{t}</Badge>
             ))}
             {submissions[problem.id]?.solved && (
@@ -104,12 +112,16 @@ function Workspace({ problem }: { problem: Problem }) {
 
   const toolbar = (
     <div className="flex items-center gap-2">
-      <Segmented size="sm" value={lang} onChange={setLang} options={LANGS} />
+      {langs.length > 1 ? (
+        <Segmented size="sm" value={lang} onChange={setLang} options={langs.map((l) => ({ value: l, label: LANG_LABEL[l] }))} />
+      ) : (
+        <span className="rounded-lg border border-line px-2.5 py-1 font-mono text-[12px] text-dim">{LANG_LABEL[lang]}</span>
+      )}
       <Button
         variant="ghost"
         size="sm"
         icon={<RotateCcw className="size-3.5" />}
-        onClick={() => setCodes((p) => ({ ...p, [lang]: problem.starter[lang] }))}
+        onClick={() => setCodes((p) => ({ ...p, [lang]: problem.starter[lang] ?? "" }))}
         title="Вернуть шаблон"
       >
         {!phone && "Сброс"}
@@ -134,7 +146,7 @@ function Workspace({ problem }: { problem: Problem }) {
     </div>
   );
 
-  const result = <Results outcome={outcome} running={!!running} lang={lang} params={problem.params} />;
+  const result = <Results outcome={outcome} running={!!running} lang={lang} params={problem.params} kind={problem.kind ?? "function"} />;
 
   if (phone) {
     return (
@@ -190,11 +202,11 @@ const short = (v: unknown) => {
   return s && s.length > 160 ? `${s.slice(0, 160)}… (${s.length} симв.)` : s;
 };
 
-function Results({ outcome, running, lang, params }: { outcome: (RunOutcome & { all: boolean }) | null; running: boolean; lang: Lang; params: string[] }) {
+function Results({ outcome, running, lang, params, kind }: { outcome: (RunOutcome & { all: boolean }) | null; running: boolean; lang: Lang; params: string[]; kind: string }) {
   if (running)
     return (
       <div className="flex items-center gap-2.5 text-[14px] text-mute">
-        <Spinner className="size-4" /> {lang === "python" ? "Python загружается при первом запуске, дальше быстро…" : "Выполняю…"}
+        <Spinner className="size-4" /> {lang === "python" ? "Python загружается при первом запуске, дальше быстро…" : lang === "sql" ? "SQLite загружается при первом запуске…" : kind === "concurrency" ? "Запускаю «потоки» в случайном порядке…" : "Выполняю…"}
       </div>
     );
   if (!outcome) return <div className="text-[14px] text-mute">«Запустить» — открытые примеры. «Отправить» — все тесты, включая большие и крайние случаи.</div>;
@@ -219,7 +231,7 @@ function Results({ outcome, running, lang, params }: { outcome: (RunOutcome & { 
       />
       <div className="mt-4 grid gap-2">
         {outcome.results.map((r) => (
-          <TestRow key={r.index} r={r} params={params} defaultOpen={r === firstFail} />
+          <TestRow key={r.index} r={r} params={params} defaultOpen={r === firstFail} kind={kind} />
         ))}
       </div>
     </div>
@@ -238,7 +250,41 @@ function Verdict({ bad, title, sub }: { bad?: boolean; title: string; sub?: stri
   );
 }
 
-function TestRow({ r, params, defaultOpen }: { r: TestResult; params: string[]; defaultOpen: boolean }) {
+function SqlTable({ data, bad }: { data: unknown; bad?: boolean }) {
+  const d = data as { columns?: string[]; rows?: unknown[][] } | null;
+  if (!d?.rows) return <span className="text-mute">—</span>;
+  return (
+    <div className="overflow-x-auto">
+      <table className={cx("min-w-0 border-collapse text-[11.5px]", bad ? "text-bad" : "text-ink")}>
+        {d.columns && d.columns.length > 0 && (
+          <thead>
+            <tr>
+              {d.columns.map((c) => (
+                <th key={c} className="border border-line px-2 py-0.5 text-left font-normal text-mute">{c}</th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {d.rows.slice(0, 30).map((row, i) => (
+            <tr key={i}>
+              {row.map((v, j) => (
+                <td key={j} className="border border-line px-2 py-0.5">{v === null ? "null" : String(v)}</td>
+              ))}
+            </tr>
+          ))}
+          {!d.rows.length && (
+            <tr>
+              <td className="px-2 py-0.5 text-mute">пусто</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TestRow({ r, params, defaultOpen, kind }: { r: TestResult; params: string[]; defaultOpen: boolean; kind: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded-lg border border-line bg-bg">
@@ -249,11 +295,20 @@ function TestRow({ r, params, defaultOpen }: { r: TestResult; params: string[]; 
       </button>
       {open && (
         <div className="grid gap-2 border-t border-line px-3 py-2.5 font-mono text-[12px]">
-          {params.map((p, i) => (
-            <KV key={p} k={p} v={short(r.args[i])} />
-          ))}
-          <KV k="ожидается" v={short(r.expected)} />
-          <KV k="получено" v={r.error ?? short(r.output)} bad={!r.pass} />
+          {kind === "sql" ? (
+            <>
+              <div className="grid grid-cols-[84px_1fr] gap-2"><span className="text-mute">ожидается</span><SqlTable data={r.expected} /></div>
+              {r.error ? <KV k="ошибка" v={r.error} bad /> : <div className="grid grid-cols-[84px_1fr] gap-2"><span className="text-mute">получено</span><SqlTable data={r.output} bad={!r.pass} /></div>}
+            </>
+          ) : (
+            <>
+              {params.map((p, i) => (
+                <KV key={p} k={p} v={short(r.args[i])} />
+              ))}
+              <KV k="ожидается" v={typeof r.expected === "string" && kind === "concurrency" ? r.expected : short(r.expected)} />
+              <KV k="получено" v={r.error ?? short(r.output)} bad={!r.pass} />
+            </>
+          )}
           {r.stdout && <KV k="stdout" v={r.stdout} />}
         </div>
       )}

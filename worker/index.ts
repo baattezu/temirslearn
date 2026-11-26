@@ -426,6 +426,16 @@ app.post("/interviews/:id/finish", async (c) => {
   return c.json(summary);
 });
 
+// ── Экспорт всех данных ───────────────────────────────────
+
+app.get("/export", async (c) => {
+  const tables = ["progress", "reviews", "notes", "highlights", "submissions", "practice", "interviews", "interview_answers", "settings", "activity"];
+  const out: Record<string, unknown[]> = {};
+  for (const t of tables) out[t] = (await c.env.DB.prepare(`SELECT * FROM ${t}`).all()).results;
+  c.header("content-disposition", `attachment; filename="temirslearn-${today()}.json"`);
+  return c.json({ exported_at: new Date().toISOString(), ...out });
+});
+
 // ── Главная ───────────────────────────────────────────────
 
 app.get("/activity", async (c) => {

@@ -1,0 +1,1 @@
+[{"args":["aa","a"],"expected":false},{"args":["aa","a*"],"expected":true},{"args":["ab",".*"],"expected":true},{"args":["mississippi","mis*is*p*."],"expected":false},{"args":["aab","c*a*b"],"expected":true},{"args":["aaaaaaaaaaaaaaaaaaaaaaaaa","a*a*a*a*a*a*a*a*a*a*a*a*b"],"expected":false}]

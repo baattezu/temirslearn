@@ -1,8 +1,11 @@
+import GENERATED from "./generated.json";
+
 // Свой LeetCode: условие, сигнатура, тесты. Судья — в браузере (src/features/problems/runner.ts).
 // Первые `sample` тестов видны и запускаются кнопкой «Запустить», все — кнопкой «Отправить».
 
-export type Lang = "python" | "javascript";
+export type Lang = "python" | "javascript" | "sql";
 export type Compare = "exact" | "unordered" | "unordered-deep";
+export type Kind = "function" | "design" | "sql" | "concurrency";
 
 export interface Test {
   args: unknown[];
@@ -14,21 +17,39 @@ export interface Problem {
   title: string;
   difficulty: "easy" | "medium" | "hard";
   tags: string[];
+  /** раздел для фильтра: «Графы», «SQL», «Многопоточность»… */
+  topic: string;
+  /** подборки: blind75, neetcode150, grind75, sql50, top-interview */
+  lists?: string[];
+  /** номер на LeetCode */
+  lc?: number;
+  kind?: Kind;
   lesson?: string;
   statement: string; // markdown
   fn: string;
   params: string[];
-  starter: Record<Lang, string>;
+  starter: Partial<Record<Lang, string>>;
   sample: number;
-  tests: Test[];
+  /** у сгенерированных задач тесты лежат в /problems/<id>.json и грузятся при открытии */
+  tests?: Test[];
+  testCount?: number;
+  examples?: Test[];
   compare?: Compare;
+  /** конвертация массивов в ListNode/TreeNode и обратно */
+  io?: { list?: number[]; lists?: number[]; tree?: number[]; ret?: "list" | "tree" | "arg0" };
+  /** многопоточность: сценарий запуска и проверка вывода (JS-исходники) */
+  scenario?: string;
+  check?: string;
 }
+
+export const langsOf = (p: Problem) => (Object.keys(p.starter) as Lang[]).filter((l) => p.starter[l]);
 
 const py = (fn: string, params: string[], body = "pass") => `def ${fn}(${params.join(", ")}):\n    ${body}\n`;
 const js = (fn: string, params: string[]) => `function ${fn}(${params.join(", ")}) {\n  \n}\n`;
 
-function make(p: Omit<Problem, "starter"> & { starter?: Partial<Record<Lang, string>> }): Problem {
+function make(p: Omit<Problem, "starter" | "topic"> & { starter?: Partial<Record<Lang, string>>; topic?: string }): Problem {
   return {
+    topic: "Массивы и хеши",
     ...p,
     starter: {
       python: p.starter?.python ?? py(p.fn, p.params),
@@ -44,7 +65,7 @@ function rng(seed: number) {
 
 const bigSorted = Array.from({ length: 100_000 }, (_, i) => i * 3 - 50_000);
 
-export const PROBLEMS: Problem[] = [
+const BASE: Problem[] = [
   make({
     id: "two-sum",
     title: "Two Sum",
@@ -317,4 +338,40 @@ export const PROBLEMS: Problem[] = [
   }),
 ];
 
+// темы и подборки для исходных задач
+const META: Record<string, { topic: string; lists: string[]; lc: number }> = {
+  "two-sum": { topic: "Массивы и хеши", lists: ["blind75", "neetcode150", "grind75"], lc: 1 },
+  "valid-parentheses": { topic: "Стек", lists: ["blind75", "neetcode150", "grind75"], lc: 20 },
+  "binary-search": { topic: "Бинарный поиск", lists: ["neetcode150", "grind75"], lc: 704 },
+  "search-insert-position": { topic: "Бинарный поиск", lists: ["top-interview"], lc: 35 },
+  "climbing-stairs": { topic: "Динамика 1D", lists: ["blind75", "neetcode150", "grind75"], lc: 70 },
+  "longest-substring": { topic: "Скользящее окно", lists: ["blind75", "neetcode150", "grind75"], lc: 3 },
+  "merge-intervals": { topic: "Интервалы", lists: ["blind75", "neetcode150", "grind75"], lc: 56 },
+  "top-k-frequent": { topic: "Кучи", lists: ["blind75", "neetcode150"], lc: 347 },
+  "number-of-islands": { topic: "Графы", lists: ["blind75", "neetcode150", "grind75"], lc: 200 },
+  "koko-bananas": { topic: "Бинарный поиск", lists: ["neetcode150"], lc: 875 },
+  "product-except-self": { topic: "Массивы и хеши", lists: ["blind75", "neetcode150", "grind75"], lc: 238 },
+};
+for (const p of BASE) Object.assign(p, META[p.id] ?? {});
+
+export const PROBLEMS: Problem[] = [...BASE, ...(GENERATED as Problem[])];
+
 export const problemById = (id: string) => PROBLEMS.find((p) => p.id === id);
+
+export const testCount = (p: Problem) => p.tests?.length ?? p.testCount ?? 0;
+
+const testCache = new Map<string, Promise<Test[]>>();
+/** Тесты задачи: встроенные или статический файл (большие стресс-тесты не раздувают бандл). */
+export function loadTests(p: Problem): Promise<Test[]> {
+  if (p.tests) return Promise.resolve(p.tests);
+  if (!testCache.has(p.id)) {
+    testCache.set(
+      p.id,
+      fetch(`/problems/${p.id}.json`).then((r) => {
+        if (!r.ok) throw new Error(`тесты не загрузились: HTTP ${r.status}`);
+        return r.json() as Promise<Test[]>;
+      }),
+    );
+  }
+  return testCache.get(p.id)!;
+}

@@ -215,12 +215,19 @@ input[type="range"] {
 }
 
 /* узел «пора повторить» мягко пульсирует */
+/* кольцо рисуется псевдоэлементом и анимирует только transform/opacity — без перерисовки */
 @keyframes pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-amber) 45%, transparent); }
-  50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-amber) 0%, transparent); }
+  0% { transform: scale(1); opacity: 0.55; }
+  70%, 100% { transform: scale(1.32); opacity: 0; }
 }
-.anim-pulse-ring {
-  animation: pulse-ring 2.4s ease-in-out infinite;
+.anim-pulse-ring::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid var(--color-amber);
+  animation: pulse-ring 2.4s ease-out infinite;
+  pointer-events: none;
 }
 
 /* выделения в уроках — CSS Custom Highlight API, DOM урока не трогаем */
@@ -241,7 +248,7 @@ input[type="range"] {
   animation: bob 1.6s steps(2) infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .anim-pulse-ring, .anim-bob { animation: none; }
+  .anim-pulse-ring::after, .anim-bob { animation: none; }
 }
 @keyframes sprite {
   from { background-position: 0 0; }
@@ -252,4 +259,36 @@ input[type="range"] {
 }
 @media (prefers-reduced-motion: reduce) {
   .anim-sprite { animation: none; }
+}
+
+/* скелетоны */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-raised);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.045), transparent);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
+/* настройки: размер текста урока и «меньше анимаций» */
+.prose-lab.font-s { font-size: 15px; }
+.prose-lab.font-l { font-size: 18.5px; }
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
 }

@@ -1,4 +1,5 @@
 import { ArrowRight, Flag, Keyboard, Mic, RotateCcw, Sparkles, Square, Trash2, Volume2 } from "lucide-react";
+import { PageSkeleton } from "../../ui/Skeleton";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import type { Grade, Summary } from "../../../shared/interview";
@@ -22,9 +23,7 @@ export function InterviewSession() {
   if (error) return <Navigate to="/interview" replace />;
   if (!data)
     return (
-      <div className="flex min-h-dvh items-center justify-center text-mute">
-        <Spinner />
-      </div>
+      <PageSkeleton />
     );
   return <Session iv={data} setIv={(f) => setData((d) => (d ? f(d) : d))} />;
 }
