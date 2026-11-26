@@ -1,0 +1,233 @@
+Это не справочник, а тур: что в Java главное, где она отличается от Python и JavaScript и на чём спотыкаются. Читай с открытой IDE — каждый пример стоит набрать руками.
+
+## Программа и файл
+
+В Java всё живёт **внутри классов**. Один публичный класс — один файл с тем же именем. Точка входа — метод `main`.
+
+<Compare
+  tone="same"
+  left={{ label: "Java · Hello.java", code: `public class Hello {
+    public static void main(String[] args) {
+        String name = args.length > 0 ? args[0] : "мир";
+        System.out.println("Привет, " + name);
+    }
+}` }}
+  right={{ label: "Python · hello.py", lang: "python", code: `import sys
+
+name = sys.argv[1] if len(sys.argv) > 1 else "мир"
+print(f"Привет, {name}")` }}
+  note={<>Запуск: <code>javac Hello.java && java Hello</code>, а с Java 11 можно сразу <code>java Hello.java</code>. Блоки — фигурные скобки, строки кончаются <code>;</code>, отступы для компилятора ничего не значат.</>}
+/>
+
+## Типы: примитивы и ссылки
+
+Главное отличие от Python: у переменной **статический тип**, и типы бывают двух сортов.
+
+- **Примитивы** — `int`, `long`, `double`, `boolean`, `char`, `byte`, `short`, `float`. Лежат прямо в переменной, без объекта. `int` — 32 бита и переполняется молча: `Integer.MAX_VALUE + 1 == Integer.MIN_VALUE`.
+- **Ссылки** — всё остальное: `String`, массивы, любые объекты. Переменная хранит адрес объекта в куче; может быть `null`.
+
+```java
+int a = 5;            // примитив, значение
+Integer b = 5;        // объект-обёртка (autoboxing)
+var list = new ArrayList<String>();   // var: тип выводится, но он статический
+long big = 3_000_000_000L;            // L — литерал long
+double price = 0.1 + 0.2;             // 0.30000000000000004 — для денег BigDecimal
+```
+
+<Callout kind="warn" title="Ловушка №1: == для объектов">
+`==` сравнивает **ссылки**. Строки и обёртки сравнивай через `equals`: `"abc".equals(s)`. `Integer` от −128 до 127 кэшируется, поэтому `==` «иногда работает» — это худший вид бага.
+</Callout>
+
+## Строки
+
+`String` **неизменяемая**. Каждое `s + x` в цикле создаёт новую строку — для склейки в цикле есть `StringBuilder`.
+
+```java
+String s = "Java";
+s.length();                // 4 — метод, не свойство
+s.charAt(0);               // 'J' — char в одинарных кавычках
+s.substring(1, 3);         // "av"
+String.format("%s = %d", "x", 42);
+"""
+    Текстовый блок —
+    многострочная строка (Java 15+)
+    """;
+var sb = new StringBuilder();
+for (int i = 0; i < 3; i++) sb.append(i).append(',');
+```
+
+## Управление потоком
+
+`if`, `for`, `while` — как в C. Плюс for-each и современный `switch`-выражение.
+
+<Compare
+  tone="same"
+  left={{ label: "Java", code: `for (int i = 0; i < n; i++) { ... }
+for (String w : words) { ... }        // for-each
+
+String kind = switch (day) {          // switch-выражение (14+)
+    case SATURDAY, SUNDAY -> "выходной";
+    default -> "будний";
+};` }}
+  right={{ label: "Python", lang: "python", code: `for i in range(n): ...
+for w in words: ...
+
+kind = "выходной" if day in (SAT, SUN) else "будний"
+# или match/case (3.10+)` }}
+/>
+
+## Коллекции
+
+Массивы фиксированной длины — редко. В коде почти всегда **интерфейс** слева, реализация справа:
+
+```java
+List<String> names = new ArrayList<>();   // динамический массив
+names.add("Ада");
+Map<String, Integer> age = new HashMap<>();
+age.put("Ада", 36);
+age.getOrDefault("Алан", 0);
+Set<Integer> seen = new HashSet<>();
+
+List<Integer> fixed = List.of(1, 2, 3);   // неизменяемый: add() бросит исключение
+for (var e : age.entrySet()) System.out.println(e.getKey() + " " + e.getValue());
+```
+
+Дженерики (`List<String>`) проверяются компилятором, но в рантайме **стираются**: внутри это просто `List` объектов. Поэтому нельзя `new T()` и `List<int>` — только `List<Integer>`.
+
+## Классы, record, интерфейсы
+
+<Compare
+  left={{ label: "Класс по-старому", code: `public final class Point {
+    private final int x;
+    private final int y;
+
+    public Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+    public int x() { return x; }
+    public int y() { return y; }
+
+    @Override public boolean equals(Object o) { ... }
+    @Override public int hashCode() { ... }
+    @Override public String toString() { ... }
+}` }}
+  right={{ label: "record (Java 16+)", code: `public record Point(int x, int y) {
+    public Point {                       // компактный конструктор
+        if (x < 0) throw new IllegalArgumentException("x < 0");
+    }
+    public double dist() {
+        return Math.sqrt(x * x + y * y);
+    }
+}
+// equals, hashCode, toString, геттеры x() и y()
+// генерируются; поля final` }}
+  note={<>Для неизменяемых данных — DTO, ключей, значений — сейчас пишут <code>record</code>. Обычный класс — когда есть изменяемое состояние и поведение.</>}
+/>
+
+```java
+interface Shape { double area(); }                 // контракт
+record Circle(double r) implements Shape {
+    public double area() { return Math.PI * r * r; }
+}
+sealed interface Result permits Ok, Err {}        // закрытый набор вариантов (17+)
+record Ok(String value) implements Result {}
+record Err(String message) implements Result {}
+
+String show(Result r) {
+    return switch (r) {                            // pattern matching (21+)
+        case Ok(var v) -> "ok: " + v;
+        case Err(var m) -> "ошибка: " + m;         // компилятор проверит, что все варианты разобраны
+    };
+}
+```
+
+Модификаторы доступа: `private` (только класс), без модификатора (пакет), `protected` (пакет + наследники), `public` (все). Правило — **всё private, пока не нужно иначе**.
+
+## Исключения
+
+В Java два вида исключений, и это частый вопрос на собесе:
+
+- **checked** (`IOException`, `SQLException`) — компилятор **заставляет** обработать или объявить `throws`. Идея — нельзя забыть про ожидаемые сбои.
+- **unchecked** (`RuntimeException` и наследники: `NullPointerException`, `IllegalArgumentException`) — ошибки программиста, объявлять не нужно.
+
+```java
+try (var reader = Files.newBufferedReader(path)) {   // try-with-resources: reader закроется сам
+    return reader.readLine();
+} catch (NoSuchFileException e) {
+    return null;
+} catch (IOException e) {
+    throw new UncheckedIOException(e);                 // заворачиваем, сохраняя причину
+}
+```
+
+На практике checked-исключения многие считают неудачным экспериментом: в лямбдах и стримах с ними неудобно, поэтому Spring и современные библиотеки бросают unchecked.
+
+## Лямбды и стримы
+
+С Java 8 функции можно передавать как значения. Stream API — конвейер операций над коллекцией, ленивый: ничего не считается до терминальной операции.
+
+<Compare
+  tone="same"
+  left={{ label: "Java", code: `List<String> top = orders.stream()
+    .filter(o -> o.total() > 1000)
+    .sorted(Comparator.comparing(Order::total).reversed())
+    .limit(3)
+    .map(Order::customer)
+    .toList();
+
+Map<String, Long> byCity = users.stream()
+    .collect(Collectors.groupingBy(User::city, Collectors.counting()));` }}
+  right={{ label: "Python", lang: "python", code: `top = [o.customer for o in sorted(
+    (o for o in orders if o.total > 1000),
+    key=lambda o: o.total, reverse=True)[:3]]
+
+from collections import Counter
+by_city = Counter(u.city for u in users)` }}
+/>
+
+`Order::total` — **ссылка на метод**, короткая запись `o -> o.total()`.
+
+## null и Optional
+
+`NullPointerException` — самая частая ошибка в Java. Защиты:
+
+```java
+Optional<User> u = repo.findById(id);       // «может не быть» явно в типе
+String name = u.map(User::name).orElse("гость");
+Objects.requireNonNull(arg, "arg");         // fail fast на входе
+```
+
+`Optional` — для **возвращаемых значений**, а не для полей и параметров.
+
+## Чего в Java нет, к чему привыкнуть
+
+- Нет функций вне классов — есть `static`-методы.
+- Нет перегрузки операторов: `BigDecimal` складывают через `a.add(b)`.
+- Нет значений параметров по умолчанию — перегрузка методов или Builder.
+- Нет множественного наследования классов — только интерфейсов (с `default`-методами).
+- Нет беззнаковых чисел (кроме `char`).
+
+<Quiz
+  q={'Что выведет этот код? `String a = new String("hi"); String b = "hi"; System.out.println(a == b);`'}
+  options={["true", "false", "Ошибка компиляции", "NullPointerException"]}
+  answer={1}
+  why="`new String` создаёт новый объект, а литерал берётся из пула строк — это разные ссылки. `==` сравнивает ссылки, поэтому false. `a.equals(b)` вернул бы true."
+/>
+
+<Quiz
+  q="Почему `List<int>` не компилируется?"
+  options={["int слишком маленький", "Дженерики работают только с объектами: из-за стирания типов внутри List хранит Object, а примитив не объект", "Нужно писать List[int]", "Это работает с Java 21"]}
+  answer={1}
+  why="Параметр дженерика должен быть ссылочным типом. Используют обёртку `List<Integer>` (с автоупаковкой) или специализированные структуры вроде `IntStream` и `int[]`."
+/>
+
+<Takeaways>
+- Всё внутри классов; **статическая типизация**; блоки — `{}`, строки кончаются `;`.
+- **Примитивы** (`int`, `long`, `double`…) против **ссылок** (всё остальное, может быть `null`). Объекты сравнивай через `equals`, не `==`.
+- `String` неизменяема; склейка в цикле — `StringBuilder`.
+- Коллекции: `List`/`Map`/`Set` слева, `ArrayList`/`HashMap`/`HashSet` справа; дженерики стираются.
+- Современная Java: `var`, `record`, `sealed` + `switch` с pattern matching, текстовые блоки.
+- Исключения **checked** (обязан обработать) и **unchecked**; try-with-resources закрывает ресурсы.
+- Лямбды и **ленивые стримы**; `Optional` — для возвращаемых значений.
+</Takeaways>

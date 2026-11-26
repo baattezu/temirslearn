@@ -1,0 +1,171 @@
+Если ты уже прошёл синтаксис Java, этот урок короче: те же идеи, но питоничные. Главное — не писать на Python «как на Java» с геттерами, индексами и классами на каждый чих.
+
+## Структура и отступы
+
+Блок задаётся **отступом** (4 пробела), а не скобками. Двоеточие открывает блок.
+
+```python
+def greet(name: str, times: int = 1) -> str:   # аннотации типов — подсказки, не проверка
+    """Докстринг: описание функции."""
+    if not name:
+        raise ValueError("пустое имя")
+    return ", ".join(f"Привет, {name}" for _ in range(times))
+
+if __name__ == "__main__":     # выполняется только при запуске файла, не при импорте
+    print(greet("Ада", 2))
+```
+
+У функций есть значения по умолчанию и именованные аргументы: `greet(times=3, name="Алан")`. В Java это делают перегрузками и билдерами.
+
+## Встроенные типы
+
+```python
+n = 10 ** 100          # int не переполняется — длинная арифметика
+x = 7 / 2              # 3.5 — деление всегда float
+y = 7 // 2             # 3 — целочисленное
+s = "строка"           # неизменяемая, Unicode
+t = (1, "a")           # кортеж — неизменяемый
+xs = [3, 1, 2]         # список — изменяемый
+d = {"ada": 36}        # dict — сохраняет порядок вставки (3.7+)
+st = {1, 2, 3}         # set
+nothing = None
+```
+
+Истинность: пустые `""`, `[]`, `{}`, `0` и `None` — ложные. Поэтому `if xs:` вместо `if len(xs) > 0:`.
+
+## Циклы — по элементам, а не по индексам
+
+<Compare
+  left={{ label: "Как на Java", lang: "python", code: `for i in range(len(names)):
+    print(i, names[i])
+
+result = []
+for x in xs:
+    if x > 0:
+        result.append(x * x)
+
+for i in range(len(a)):
+    print(a[i], b[i])` }}
+  right={{ label: "Питонично", lang: "python", code: `for i, name in enumerate(names):
+    print(i, name)
+
+result = [x * x for x in xs if x > 0]
+
+
+for x, y in zip(a, b):
+    print(x, y)` }}
+  note={<>List comprehension <code>[выражение for x in xs if условие]</code> — главная идиома. Есть такие же для dict <code>{"{k: v for ...}"}</code>, set и генераторы <code>(x for x in xs)</code> — ленивые, как Stream в Java.</>}
+/>
+
+## Срезы и распаковка
+
+```python
+xs[1:3]        # элементы 1 и 2
+xs[-1]         # последний
+xs[::-1]       # развернуть
+a, b = b, a    # обмен без временной переменной
+first, *rest = [1, 2, 3]       # first = 1, rest = [2, 3]
+def f(*args, **kwargs): ...    # произвольные позиционные и именованные аргументы
+```
+
+## Словари — рабочая лошадь
+
+```python
+from collections import Counter, defaultdict
+
+counts = Counter(words)                 # частоты за одну строку
+counts.most_common(3)
+by_city = defaultdict(list)
+for u in users:
+    by_city[u.city].append(u)           # не надо проверять «есть ли ключ»
+age = d.get("alan", 0)                  # значение по умолчанию
+```
+
+## Классы и dataclass
+
+<Compare
+  tone="same"
+  left={{ label: "Java record", code: `public record Point(int x, int y) {
+    public double dist() {
+        return Math.sqrt(x * x + y * y);
+    }
+}` }}
+  right={{ label: "Python dataclass", lang: "python", code: `from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Point:
+    x: int
+    y: int
+
+    def dist(self) -> float:
+        return (self.x ** 2 + self.y ** 2) ** 0.5` }}
+  note={<><code>self</code> передаётся явно — «явное лучше неявного». Приватности нет: <code>_name</code> — договорённость «не трогай», <code>__name</code> — искажение имени, а не защита.</>}
+/>
+
+Геттеры и сеттеры не пишут: поле публичное, а если позже нужна логика — превращают его в `@property`, и вызывающий код не меняется.
+
+## Исключения и ресурсы
+
+```python
+try:
+    with open(path, encoding="utf-8") as f:    # with закроет файл, как try-with-resources
+        data = f.read()
+except FileNotFoundError:
+    data = ""
+except OSError as e:
+    raise RuntimeError("не прочитать конфиг") from e   # цепочка причин
+else:
+    print("прочитали")     # выполнится, если исключения не было
+finally:
+    print("всегда")
+```
+
+Все исключения «unchecked» — объявлять ничего не нужно. Стиль Python — **EAFP** («проще попросить прощения»): сначала делаем, ловим ошибку, а не проверяем всё заранее.
+
+## Функции как значения, генераторы
+
+```python
+sorted(users, key=lambda u: (u.city, -u.age))   # сортировка по составному ключу
+max(orders, key=lambda o: o.total)
+
+def read_lines(path):          # генератор: отдаёт по строке, не держит файл в памяти
+    with open(path) as f:
+        for line in f:
+            yield line.rstrip()
+
+total = sum(len(l) for l in read_lines("big.log"))
+```
+
+## Типы — по желанию, но в проде обязательно
+
+```python
+from typing import Literal
+
+def charge(amount: int, currency: Literal["KZT", "USD"]) -> str | None: ...
+```
+
+Интерпретатор аннотации **не проверяет**. Проверяют `mypy` или `pyright` до запуска, а FastAPI и pydantic используют их для валидации входных данных. В серьёзном проекте аннотации и проверка в CI — норма.
+
+<Quiz
+  q="Как питонично получить квадраты положительных чисел из списка `xs`?"
+  options={["`list(map(lambda x: x*x, filter(lambda x: x > 0, xs)))`", "`[x * x for x in xs if x > 0]`", "Цикл с `range(len(xs))` и `append`", "Все три одинаково питоничны"]}
+  answer={1}
+  why="Все три работают, но list comprehension — идиоматичный способ: читается как фраза и обычно быстрее цикла с append. `map`/`filter` с лямбдами в Python считают менее читаемыми."
+/>
+
+<Quiz
+  q="Что вернёт `7 / 2` и `7 // 2` в Python 3?"
+  options={["3 и 3", "3.5 и 3", "3.5 и 3.5", "3 и 3.5"]}
+  answer={1}
+  why="`/` в Python 3 — всегда настоящее деление с float, `//` — целочисленное (округление вниз: `-7 // 2 == -4`). В Python 2 и в Java `7 / 2` для целых даёт 3 — частый источник багов при портировании."
+/>
+
+<Takeaways>
+- Блоки — **отступами**; функции с значениями по умолчанию и именованными аргументами.
+- `int` без переполнения, `/` — всегда float, `//` — целочисленное; пустые коллекции ложны.
+- Перебирай **элементы**, а не индексы: `enumerate`, `zip`, **list comprehension**, генераторы.
+- `Counter`, `defaultdict`, `dict.get` — инструменты на каждый день.
+- `@dataclass` вместо ручных классов; `self` явный; приватность — договорённость; `@property` вместо геттеров.
+- Исключения не объявляются; стиль EAFP; `with` для ресурсов.
+- Аннотации типов не проверяются рантаймом — проверяет mypy/pyright.
+</Takeaways>

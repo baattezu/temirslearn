@@ -2,6 +2,8 @@ import { Check, Info, Lightbulb, TriangleAlert, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cx } from "../ui/cx";
 import { PracticeInline } from "../features/practice/Practice";
+import { Compare } from "../ui/Compare";
+import { MathText } from "../ui/MathText";
 
 /**
  * Иллюстрация с подписью и источником. Картинки лежат в public/img/<track>/,
@@ -63,7 +65,9 @@ export function Timeline({ items }: { items: { year: string; title: string; text
             {it.year}
           </div>
           <div className="mt-0.5 text-[16px] font-semibold leading-snug text-ink">{it.title}</div>
-          <div className="mt-1 text-[14.5px] leading-relaxed text-dim [&_code]:font-mono [&_code]:text-ink [&_strong]:text-ink">{it.text}</div>
+          <div className="mt-1 text-[14.5px] leading-relaxed text-dim [&_code]:font-mono [&_code]:text-ink [&_strong]:text-ink">
+            {typeof it.text === "string" ? <MathText text={it.text} /> : it.text}
+          </div>
           {it.img && <img src={it.img} alt="" loading="lazy" className="mt-2.5 max-h-48 rounded-xl border border-line object-cover" />}
         </li>
       ))}
@@ -107,7 +111,7 @@ export function Quiz({
   return (
     <div className="not-prose my-7 rounded-2xl border border-line bg-surface p-4 sm:p-5">
       <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-mute">Проверь себя</div>
-      <div className="mb-3.5 text-[15.5px] font-medium leading-snug text-ink">{q}</div>
+      <div className="mb-3.5 text-[15.5px] font-medium leading-snug text-ink">{typeof q === "string" ? <MathText text={q} /> : q}</div>
       <div className="grid gap-2">
         {options.map((o, i) => {
           const state = picked === null ? "idle" : i === answer ? "right" : i === picked ? "wrong" : "dim";
@@ -128,7 +132,7 @@ export function Quiz({
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-current font-mono text-[11px]">
                 {state === "right" ? <Check className="size-3" /> : state === "wrong" ? <X className="size-3" /> : String.fromCharCode(65 + i)}
               </span>
-              {o}
+              <MathText text={o} />
             </button>
           );
         })}
@@ -138,7 +142,7 @@ export function Quiz({
           <span className={picked === answer ? "font-semibold text-ok" : "font-semibold text-bad"}>
             {picked === answer ? "Верно. " : "Нет. "}
           </span>
-          {why}
+          {typeof why === "string" ? <MathText text={why} /> : why}
         </div>
       )}
     </div>
@@ -157,4 +161,4 @@ export function Takeaways({ children }: { children: ReactNode }) {
   );
 }
 
-export const mdxComponents = { Callout, Quiz, Takeaways, Practice: PracticeInline, Figure, Timeline };
+export const mdxComponents = { Callout, Quiz, Takeaways, Practice: PracticeInline, Figure, Timeline, Compare };
