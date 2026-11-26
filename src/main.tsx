@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import { DataProvider } from "./app/data";
 import { Layout } from "./app/Layout";
 import { Login } from "./features/auth/Login";
+import { LearnPreview } from "./features/auth/Preview";
 import { Home } from "./features/home/Home";
 import { InterviewHome } from "./features/interview/InterviewHome";
 import { TrackPage } from "./features/learn/TrackPage";
@@ -65,7 +66,8 @@ function App() {
         <Spinner />
       </div>
     );
-  if (me === null) return <Login onDone={check} />;
+  if (me === null)
+    return <Login onDone={check} brand="TEMIRSLEARN" title="Подготовка ко всему" subtitle="Уроки, задачи, интервью — в одном месте." preview={<LearnPreview />} />;
   return (
     <DataProvider me={me}>
       <RouterProvider router={router} />
