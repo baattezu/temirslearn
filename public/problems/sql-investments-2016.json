@@ -1,0 +1,1 @@
+[{"args":["CREATE TABLE Insurance (pid INT PRIMARY KEY, tiv_2015 REAL, tiv_2016 REAL, lat REAL, lon REAL);\nINSERT INTO Insurance VALUES (1,10,5,10,10),(2,20,20,20,20),(3,10,30,20,20),(4,10,40,40,40);"],"expected":{"columns":["tiv_2016"],"rows":[[45.0]]}}]

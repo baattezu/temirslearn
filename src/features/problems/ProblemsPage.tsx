@@ -81,6 +81,7 @@ export const TOPICS: { id: string; icon: LucideIcon; color: string }[] = [
   { id: "Интервалы", icon: CalendarRange, color: "var(--color-amber)" },
   { id: "Математика и биты", icon: Binary, color: "var(--color-teal)" },
   { id: "Сортировки", icon: ArrowDownWideNarrow, color: "var(--color-teal)" },
+  { id: "Дизайн структур", icon: Blocks, color: "var(--color-violet)" },
   { id: "SQL", icon: Database, color: "var(--color-rose)" },
   { id: "Многопоточность", icon: Workflow, color: "var(--color-rose)" },
 ];
