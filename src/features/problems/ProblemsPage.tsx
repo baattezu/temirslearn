@@ -203,7 +203,7 @@ export function ProblemsPage() {
           </button>
         </div>
 
-        <div className={cx("mt-3 grid gap-3", !filtersOpen && "max-md:hidden")}>
+        <div className={cx("mt-3 grid grid-cols-1 gap-3", !filtersOpen && "max-md:hidden")}>
           <div className="-mx-5 flex gap-1.5 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
             <Chip active={!f.list} onClick={() => setF({ ...f, list: null })}>
               Все подборки
@@ -255,12 +255,12 @@ export function ProblemsPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4">
+        <div className="mt-4 grid grid-cols-1 gap-4">
           {groups.map((g) => {
             const isCollapsed = !!g.id && collapsed[g.id];
             const solved = g.items.filter((p) => submissions[p.id]?.solved).length;
             return (
-              <section key={g.id || "all"}>
+              <section key={g.id || "all"} className="min-w-0">
                 {g.id && (
                   <button
                     type="button"

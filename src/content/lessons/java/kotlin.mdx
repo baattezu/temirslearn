@@ -1,0 +1,99 @@
+import { KotlinNulls } from "../../../widgets/JvmStackWidgets";
+
+Kotlin сделала компания JetBrains — авторы IntelliJ IDEA. В 2010 году у них был огромный код на Java и усталость от её многословности. Scala была мощной, но компилировалась медленно и пугала сложностью. Нужен был язык «Java, но лучше»: та же JVM, полная совместимость с Java-кодом, а все годами известные боли — исправлены. Kotlin 1.0 вышел в 2016 году, в 2017-м Google объявила его официальным языком Android, а в 2019-м — **предпочтительным**. Сегодня это основной язык Android и всё чаще — бэкенда на Spring.
+
+## Главная идея: null в системе типов
+
+В Java любая ссылка может оказаться `null`, и компилятор об этом молчит. В Kotlin тип `String` **не может** быть null, а `String?` — может, и компилятор не даст обратиться к нему без проверки.
+
+<KotlinNulls />
+
+Инструменты для работы с nullable:
+
+```kotlin
+val name: String? = findName()
+name?.length            // безопасный вызов: null, если name == null
+name ?: "гость"         // «элвис»: значение по умолчанию
+name!!.length           // «я уверен» — NPE, если ошибся; признак плохого кода
+if (name != null) name.length   // smart cast: внутри if компилятор знает, что не null
+```
+
+## То же, что в Java, но короче
+
+<Compare
+  tone="same"
+  left={{ label: "Java", code: `public record User(String name, String email) {}
+
+List<String> emails = users.stream()
+    .filter(u -> u.email() != null)
+    .map(User::email)
+    .toList();
+
+String greet(User u) {
+    return switch (u.role()) {
+        case ADMIN -> "Привет, админ";
+        default -> "Привет, " + u.name();
+    };
+}` }}
+  right={{ label: "Kotlin", lang: "plaintext", code: `data class User(val name: String, val email: String?)
+
+val emails = users.mapNotNull { it.email }
+
+fun greet(u: User) = when (u.role) {
+    ADMIN -> "Привет, админ"
+    else -> "Привет, \${u.name}"
+}` }}
+/>
+
+Что ещё делает Kotlin приятнее:
+
+- **`val` и `var`**: неизменяемость по умолчанию — `val` как `final`.
+- **data class**: `equals`, `hashCode`, `toString`, `copy()` из одной строки (появились раньше `record` в Java).
+- **Именованные и дефолтные аргументы**: `createUser(name = "Ада", admin = true)` — билдеры почти не нужны.
+- **Функции-расширения**: `fun String.isEmail() = contains("@")` — добавляет «метод» к чужому классу без наследования.
+- **Всё — выражение**: `if`, `when`, `try` возвращают значения.
+- **sealed-классы и `when`** с проверкой полноты — давно, до Java 17.
+- **Коллекции**: `List` по умолчанию неизменяемый, `MutableList` — изменяемый; богатый набор функций `map`, `filter`, `groupBy`, `associate`.
+
+## Корутины
+
+Самое крупное отличие в многопоточности — **корутины**: асинхронный код пишется как обычный последовательный.
+
+```kotlin
+suspend fun loadProfile(id: Long): Profile = coroutineScope {
+    val user = async { userClient.get(id) }        // запускаются параллельно
+    val orders = async { orderClient.list(id) }
+    Profile(user.await(), orders.await())
+}
+```
+
+`suspend`-функция может приостановиться, не блокируя поток ОС, — ровно та же идея, что у виртуальных потоков Java 21, но на уровне языка и на несколько лет раньше. **Structured concurrency**: дочерние корутины живут внутри `coroutineScope`, ошибка в одной отменяет остальные, утечек «забытых» задач нет.
+
+## Kotlin и Java в одном проекте
+
+Kotlin компилируется в тот же байткод и вызывает Java-код напрямую, а Java — Kotlin. Поэтому переход постепенный: новый файл на Kotlin рядом со старыми на Java. Spring официально поддерживает Kotlin: null-безопасность понимает аннотации JSpecify, есть Kotlin DSL для роутинга и бинов, корутины в WebFlux.
+
+Нюанс: Java-методы для Kotlin — «платформенные типы» `String!`: компилятор не знает, может ли там быть null, и проверка снова на тебе. Поэтому в Java-библиотеках так важны аннотации `@Nullable`/`@NonNull`.
+
+## Где Kotlin, а где Java
+
+| Kotlin | Java |
+|---|---|
+| Android — основной язык | огромные существующие кодовые базы |
+| новые бэкенд-сервисы на Spring/Ktor | банки и компании, где весь найм на Java |
+| мультиплатформа (общая логика для Android/iOS/веба) | библиотеки, которые должны быть удобны всем JVM-языкам |
+
+<Quiz
+  q="Почему `val city: String = user.address.city` не компилируется, если `address` имеет тип `Address?`?"
+  options={["В Kotlin нельзя обращаться к полям", "Тип Address? допускает null, и компилятор требует обработать этот случай: ?., ?: или проверку", "Нужно писать getAddress()", "val нельзя присваивать"]}
+  answer={1}
+  why={'Nullable-тип — часть системы типов. Вместо NPE в рантайме ошибка видна при компиляции; исправление — `user.address?.city ?: "…"` или явная проверка.'}
+/>
+
+<Takeaways>
+- Kotlin (JetBrains, 1.0 в 2016) — «Java без боли» на той же JVM; основной язык Android и растущий выбор для бэкенда.
+- Главное: **null в системе типов** — `String` против `String?`, `?.`, `?:`, smart cast; `!!` — запах.
+- Короче Java: `val`, data class, именованные аргументы, расширения, `when` и всё-выражение.
+- **Корутины**: `suspend`, `async/await`, structured concurrency — неблокирующий код в последовательном стиле.
+- Полная совместимость с Java: можно смешивать в одном проекте; Java-типы приходят как «платформенные».
+</Takeaways>

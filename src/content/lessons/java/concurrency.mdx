@@ -1,0 +1,129 @@
+import { ThreadPoolSim } from "../../../widgets/JvmStackWidgets";
+import { RaceViz } from "../../../widgets/CodeWidgets";
+
+В 2004 году в Java 5 появился пакет `java.util.concurrent`, написанный под руководством Дага Ли. До него многопоточность на Java была `Thread`, `synchronized`, `wait/notify` — низкоуровнево и с массой способов ошибиться. С тех пор правило простое: **почти никогда не создавай потоки руками и не пиши `wait/notify`** — для каждой типовой задачи в пакете уже есть проверенный инструмент.
+
+## Почему вообще нужна синхронизация
+
+Два потока делают `count++`. Это три операции: прочитать, прибавить, записать. Если они перемешаются — одно увеличение потеряется. Посмотри:
+
+<RaceViz />
+
+Есть три способа сделать общие данные безопасными:
+1. **Не делить** — у каждого потока свои данные (ThreadLocal, передача сообщений).
+2. **Не менять** — неизменяемые объекты можно читать откуда угодно.
+3. **Синхронизировать** — блокировки, атомики, потокобезопасные коллекции.
+
+Лучший код — первые два пункта. Третий — когда без общего изменяемого состояния никак.
+
+## Пулы потоков
+
+Создавать поток на каждую задачу дорого: поток ОС — это мегабайт стека и системный вызов. Пул держит несколько потоков и раздаёт им задачи из очереди.
+
+```java
+ExecutorService pool = new ThreadPoolExecutor(
+    8, 8,                                   // core и max размер
+    0, TimeUnit.SECONDS,
+    new ArrayBlockingQueue<>(1000),         // ограниченная очередь!
+    new ThreadPoolExecutor.CallerRunsPolicy()  // при переполнении — выполнить в вызывающем потоке
+);
+Future<Report> f = pool.submit(() -> buildReport(id));
+Report r = f.get(5, TimeUnit.SECONDS);
+```
+
+<ThreadPoolSim />
+
+Главные решения при настройке пула:
+- **Размер.** Для CPU-задач — около числа ядер. Для I/O-задач — больше (потоки в основном ждут), но лучше — виртуальные потоки (следующий урок).
+- **Очередь — ограниченная.** `Executors.newFixedThreadPool` создаёт **безграничную** очередь: под нагрузкой задачи копятся в памяти, пока не придёт OOM. В проде — явный `ThreadPoolExecutor` с `ArrayBlockingQueue`.
+- **Политика отказа**: бросить исключение (`AbortPolicy`), выполнить в вызывающем потоке (`CallerRunsPolicy` — естественное замедление производителя), выбросить задачу.
+- **Имена потоков** через `ThreadFactory` — иначе в дампе потоков будет «pool-7-thread-3».
+- **Закрывать**: `shutdown()` и `awaitTermination`, или `try (var pool = Executors.newVirtualThreadPerTaskExecutor())` (Java 21+, `ExecutorService` стал `AutoCloseable`).
+
+## Блокировки и атомики
+
+```java
+// synchronized — простой взаимоисключающий блок
+synchronized (lock) { balance -= amount; }
+
+// ReentrantLock — то же, но с tryLock, таймаутом и условиями
+if (lock.tryLock(100, TimeUnit.MILLISECONDS)) {
+    try { ... } finally { lock.unlock(); }      // unlock — только в finally
+}
+
+// ReadWriteLock — много читателей или один писатель
+// StampedLock — оптимистичное чтение без блокировки
+
+// атомики — lock-free через CAS (compare-and-swap)
+AtomicLong counter = new AtomicLong();
+counter.incrementAndGet();
+LongAdder hits = new LongAdder();   // под сильной конкуренцией быстрее AtomicLong
+hits.increment();
+```
+
+**CAS** — инструкция процессора «запиши новое значение, только если там всё ещё старое». Атомик крутит её в цикле до успеха. Нет блокировок — нет дедлоков, но под сильной конкуренцией много неудачных попыток; поэтому `LongAdder` раскладывает счётчик по ячейкам.
+
+## Потокобезопасные коллекции
+
+| Нужно | Брать | Не брать |
+|---|---|---|
+| общая map | `ConcurrentHashMap` (+ `compute`, `merge` для атомарных обновлений) | `Collections.synchronizedMap`, `Hashtable` |
+| очередь между потоками | `ArrayBlockingQueue`, `LinkedBlockingQueue` | `ArrayList` + `synchronized` |
+| редко меняемый список слушателей | `CopyOnWriteArrayList` | — |
+| счётчик | `AtomicLong`, `LongAdder` | `volatile long` с `++` |
+
+Ловушка: `if (!map.containsKey(k)) map.put(k, v)` на `ConcurrentHashMap` **не атомарно** — между проверкой и записью успеет другой поток. Атомарно: `map.putIfAbsent(k, v)`, `map.computeIfAbsent(k, key -> load(key))`.
+
+## Синхронизаторы
+
+- **`CountDownLatch(n)`** — ждать, пока n событий произойдут («дождаться, пока все 5 сервисов стартуют»).
+- **`Semaphore(n)`** — не больше n одновременно («не больше 10 запросов к внешнему API»).
+- **`CyclicBarrier(n)`** — n потоков ждут друг друга в точке встречи, и снова.
+- **`Phaser`** — гибкий барьер с переменным числом участников.
+
+Задачи раздела «Многопоточность» во вкладке «Задачи» — ровно про эти инструменты.
+
+## CompletableFuture: асинхронные цепочки
+
+```java
+CompletableFuture<Profile> profile =
+    supplyAsync(() -> users.get(id), pool)
+        .thenCombine(supplyAsync(() -> orders.list(id), pool), Profile::new)
+        .orTimeout(2, TimeUnit.SECONDS)
+        .exceptionally(e -> Profile.empty(id));
+```
+
+Запускаем две задачи параллельно, объединяем результаты, ставим таймаут и фолбэк. Важно: **передавай свой пул** — по умолчанию задачи идут в общий `ForkJoinPool.commonPool()`, и одна блокирующая операция может затормозить всё приложение.
+
+## Дедлок
+
+Поток A держит замок 1 и ждёт замок 2, поток B держит 2 и ждёт 1. Оба стоят вечно. Лечится:
+- **глобальным порядком захвата** — всегда сначала замок с меньшим id (так решается задача об обедающих философах);
+- `tryLock` с таймаутом и повтором;
+- минимальным временем удержания блокировок и отказом от вызовов чужого кода под блокировкой.
+
+Найти дедлок в проде: `jstack <pid>` или `jcmd <pid> Thread.print` — JVM сама пишет «Found one Java-level deadlock».
+
+<Quiz
+  q="Почему `Executors.newFixedThreadPool(8)` опасен под высокой нагрузкой?"
+  options={["8 потоков — слишком мало", "У него безграничная очередь: задачи копятся в памяти, пока не кончится heap, вместо явного отказа", "Он не переиспользует потоки", "Он однопоточный"]}
+  answer={1}
+  why="LinkedBlockingQueue без ограничения принимает всё. Перегрузка превращается в рост памяти и задержек вместо быстрого отказа. В проде задают ограниченную очередь и политику отказа явно."
+/>
+
+<Quiz
+  q="Как атомарно увеличить счётчик по ключу в ConcurrentHashMap<String, Long>?"
+  options={["`map.put(k, map.get(k) + 1)`", "`map.merge(k, 1L, Long::sum)`", "`synchronized(map) { ... }` — единственный способ", "`map.get(k)++`"]}
+  answer={1}
+  why="get + put — две операции, между ними вклинится другой поток. merge (и compute) выполняются атомарно для ключа внутри ConcurrentHashMap."
+/>
+
+<Takeaways>
+- Не создавай потоки руками и не пиши `wait/notify` — используй `java.util.concurrent` (Java 5, Даг Ли).
+- Лучшая синхронизация — не делить и не менять; иначе — блокировки, атомики, потокобезопасные коллекции.
+- **Пулы**: размер под тип нагрузки, **ограниченная очередь**, явная политика отказа, имена потоков, закрытие.
+- `ReentrantLock` (tryLock, unlock в finally), атомики на **CAS**, `LongAdder` под конкуренцией.
+- `ConcurrentHashMap` — атомарно через `merge/compute/putIfAbsent`, не через проверку + запись.
+- Синхронизаторы: `CountDownLatch`, `Semaphore`, `CyclicBarrier`. `CompletableFuture` — со своим пулом.
+- Дедлок лечится порядком захвата и таймаутами; ищется `jstack`.
+</Takeaways>

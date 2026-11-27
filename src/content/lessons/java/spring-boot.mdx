@@ -1,0 +1,82 @@
+Spring Framework решил проблему EJB, но породил свою: чтобы поднять веб-приложение с базой, нужно было сконфигурировать DispatcherServlet, DataSource, транзакции, Jackson, логирование, собрать WAR и задеплоить его в Tomcat. Сотни строк XML или Java-конфига, которые у всех одинаковые. **Spring Boot** (2014) убрал эту рутину по принципу **«соглашения вместо конфигурации»**: разумные настройки по умолчанию, которые переопределяешь только там, где нужно.
+
+## Три идеи Spring Boot
+
+**1. Стартеры.** Одна зависимость тянет согласованный набор библиотек с проверенными версиями: `spring-boot-starter-web` (Spring MVC + Tomcat + Jackson), `spring-boot-starter-data-jpa` (Hibernate + пул HikariCP + Spring Data), `spring-boot-starter-actuator`. Конфликтов версий больше нет — их выбирает BOM Spring Boot.
+
+**2. Автоконфигурация.** При старте Boot смотрит, что лежит в classpath и что уже настроено, и создаёт недостающие бины:
+
+```java
+@AutoConfiguration
+@ConditionalOnClass(DataSource.class)              // есть JDBC в зависимостях
+@ConditionalOnMissingBean(DataSource.class)        // и ты не создал свой
+@EnableConfigurationProperties(DataSourceProperties.class)
+class DataSourceAutoConfiguration {
+    @Bean HikariDataSource dataSource(DataSourceProperties p) { ... }   // из spring.datasource.*
+}
+```
+
+Ключевое — `@ConditionalOnMissingBean`: **твой бин всегда побеждает**. Хочешь свой DataSource — объяви его, и автоконфигурация отступит. Посмотреть, что сработало и почему: запуск с `--debug` печатает отчёт об условиях, а Actuator отдаёт его по `/actuator/conditions`.
+
+**3. Встроенный сервер.** Приложение — обычный `jar` с Tomcat внутри: `java -jar app.jar`. Это и сделало Boot идеальным для контейнеров и микросервисов.
+
+```java
+@SpringBootApplication          // = @Configuration + @EnableAutoConfiguration + @ComponentScan
+public class App {
+    public static void main(String[] args) { SpringApplication.run(App.class, args); }
+}
+```
+
+## Конфигурация и профили
+
+Настройки читаются из множества источников с чётким приоритетом (от высшего): аргументы командной строки → переменные окружения → `application-{profile}.yml` → `application.yml`. Поэтому в Kubernetes конфиг переопределяют переменными окружения: `SPRING_DATASOURCE_URL` перекрывает `spring.datasource.url`.
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shop
+  jpa:
+    open-in-view: false        # выключи: иначе lazy-загрузка тайком идёт во время рендеринга ответа
+app:
+  payments:
+    timeout: 3s
+    retries: 2
+```
+
+```java
+@ConfigurationProperties(prefix = "app.payments")
+record PaymentProps(Duration timeout, int retries) {}     // типобезопасно, с валидацией
+```
+
+**Профили** (`dev`, `test`, `prod`) включают разные наборы бинов и настроек: `@Profile("dev")` на бине, `application-prod.yml`, активация через `SPRING_PROFILES_ACTIVE=prod`.
+
+## Actuator: приложение рассказывает о себе
+
+`spring-boot-starter-actuator` добавляет служебные эндпоинты:
+
+- `/actuator/health` (и `/health/liveness`, `/health/readiness`) — для проб Kubernetes;
+- `/actuator/metrics` и `/actuator/prometheus` — метрики Micrometer: запросы, пул соединений, JVM, GC;
+- `/actuator/info`, `/env`, `/loggers` (менять уровень логов на лету), `/threaddump`, `/heapdump`.
+
+Наружу открывают только health и метрики: `/env` и `/heapdump` могут раскрыть секреты.
+
+## Типичные вопросы на собесе
+
+- **Как работает автоконфигурация?** — `@EnableAutoConfiguration` загружает список классов автоконфигураций из `META-INF/spring/…AutoConfiguration.imports`, каждый включается по `@Conditional…`-условиям.
+- **Как переопределить автоконфигурацию?** — объявить свой бин (`@ConditionalOnMissingBean`), настроить свойства или исключить: `@SpringBootApplication(exclude = …)`.
+- **Почему приложение стартует медленно?** — сканирование, автоконфигурации, инициализация Hibernate. Ускоряют: ленивую инициализацию бинов, CDS/AppCDS, а для мгновенного старта — GraalVM native image (Spring Boot 3 поддерживает AOT).
+
+<Quiz
+  q="Ты объявил свой бин DataSource. Что сделает автоконфигурация Boot?"
+  options={["Создаст второй и упадёт с конфликтом", "Отступит: её DataSource помечен @ConditionalOnMissingBean, и твой бин побеждает", "Перезапишет твой бин своим", "Ничего, пока не удалишь стартер"]}
+  answer={1}
+  why="Это центральный принцип Boot: умолчания создаются, только если ты не предоставил своё. Поэтому кастомизация — это обычно просто объявить свой бин или поменять свойство."
+/>
+
+<Takeaways>
+- Spring Boot (2014) — **соглашения вместо конфигурации**: убрал одинаковую у всех настройку Spring.
+- **Стартеры** — согласованные наборы зависимостей; **автоконфигурация** — бины по условиям `@ConditionalOnClass/OnMissingBean`, твой бин всегда побеждает.
+- **Встроенный сервер**: `java -jar`, идеально для контейнеров.
+- Конфиг с приоритетами (аргументы > env > профиль > базовый), `@ConfigurationProperties` с record, **профили**. Выключай `open-in-view`.
+- **Actuator**: health для проб, метрики Micrometer/Prometheus, управление логами; наружу — только безопасное.
+</Takeaways>

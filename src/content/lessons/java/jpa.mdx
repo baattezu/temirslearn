@@ -1,0 +1,90 @@
+import { PersistenceContext } from "../../../widgets/JvmStackWidgets";
+
+Объекты в Java и строки в реляционной базе устроены по-разному: у объектов ссылки, наследование и идентичность в памяти, у таблиц — внешние ключи, JOIN и первичные ключи. Этот разрыв называют **object-relational impedance mismatch**. ORM (object-relational mapping) прячет его: работаешь с объектами, а SQL генерирует библиотека. В Java стандарт — **JPA** (Jakarta Persistence API), самая популярная реализация — **Hibernate** (Гэвин Кинг, 2001; стандарт JPA в 2006 году во многом написан по его образцу).
+
+ORM экономит много кода, но у неё есть собственная модель поведения, и большинство проблем с производительностью и «странными» багами — от непонимания этой модели. Её центр — **persistence context**.
+
+## Persistence context: кэш первого уровня
+
+`EntityManager` (в Hibernate — `Session`) держит **контекст персистентности** — набор управляемых объектов в рамках транзакции. Для каждой загруженной сущности он хранит:
+- объект — **один на первичный ключ**: `em.find(User.class, 42)` дважды вернёт тот же экземпляр без второго запроса;
+- **снимок** её полей на момент загрузки — чтобы потом понять, что изменилось.
+
+Попробуй — и смотри, в какой момент на самом деле уходит SQL:
+
+<PersistenceContext />
+
+## Состояния сущности
+
+| Состояние | Что значит |
+|---|---|
+| **transient** | обычный `new User()`, Hibernate о нём не знает |
+| **managed** | в контексте: изменения будут найдены и записаны |
+| **detached** | был в контексте, но контекст закрыт (транзакция кончилась) — изменения никто не отслеживает |
+| **removed** | помечен на удаление, DELETE при flush |
+
+## Dirty checking и flush
+
+Самое неожиданное для новичков: чтобы обновить строку, **не нужен `save()`**.
+
+```java
+@Transactional
+public void rename(long id, String name) {
+    User u = users.findById(id).orElseThrow();   // managed
+    u.setName(name);                              // просто меняем поле
+}                                                 // при коммите: flush → UPDATE users SET name = ? WHERE id = ?
+```
+
+При **flush** Hibernate сравнивает каждую managed-сущность со снимком (**dirty checking**) и генерирует INSERT/UPDATE/DELETE. Flush происходит перед коммитом, перед JPQL-запросом, который может зависеть от несохранённых изменений, и при явном `em.flush()`.
+
+Следствия:
+- SQL уходит **не там, где вызван метод**, а при flush. Ошибка нарушения ограничения прилетит при коммите, а не на строке `persist`.
+- Тысячи загруженных сущностей = тысячи сравнений при каждом flush. Для отчётов и пакетных операций — read-only транзакции (`@Transactional(readOnly = true)` отключает dirty checking в Hibernate) или проекции в DTO.
+- Изменения **detached**-объекта (например, пришедшего из другого запроса) ничего не дают, пока не сделан `merge`.
+
+## Отображение связей
+
+```java
+@Entity
+class Order {
+    @Id @GeneratedValue(strategy = GenerationType.SEQUENCE) Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)              // у ManyToOne по умолчанию EAGER — почти всегда меняют на LAZY
+    Customer customer;
+
+    @OneToMany(mappedBy = "order", cascade = ALL, orphanRemoval = true)
+    List<OrderItem> items = new ArrayList<>();      // по умолчанию LAZY
+
+    @Version Long version;                           // оптимистичная блокировка
+
+    void addItem(OrderItem i) { items.add(i); i.setOrder(this); }   // держи обе стороны связи согласованными
+}
+```
+
+Важные детали:
+- **Владелец связи** — сторона с внешним ключом (`@ManyToOne`); `mappedBy` на другой стороне говорит «колонка не моя».
+- **`IDENTITY`** как стратегия генерации ключа отключает пакетную вставку в Hibernate (нужно вставить строку, чтобы узнать id). `SEQUENCE` с `allocationSize` — быстрее.
+- **`@Version`** — оптимистичная блокировка: при конфликте `OptimisticLockException` вместо потерянного обновления (lost update из урока об изоляции).
+- **`equals/hashCode`** у сущностей — по бизнес-ключу или аккуратно по id; сгенерированный Lombok `@Data` с коллекциями ломает и `Set`, и производительность.
+
+## Когда ORM мешает
+
+- **Отчёты и аналитика** — сложные агрегаты удобнее писать на SQL: `@Query(nativeQuery = true)`, jOOQ или JdbcTemplate.
+- **Массовые операции** — обновить миллион строк через загрузку сущностей нельзя; нужен `UPDATE … WHERE` одним запросом (и помни, что он обходит persistence context).
+- **Чтение для API** — проекции в DTO (`select new com.x.OrderDto(o.id, o.total) …` или интерфейсные проекции Spring Data) вместо целых графов сущностей.
+
+<Quiz
+  q="В @Transactional методе загрузили User и вызвали user.setEmail(...). save() не вызывали. Что произойдёт?"
+  options={["Ничего: без save изменения теряются", "При коммите flush найдёт изменённое поле (dirty checking) и выполнит UPDATE", "Hibernate бросит исключение", "UPDATE выполнится сразу в setEmail"]}
+  answer={1}
+  why="Загруженная сущность — managed: контекст хранит её снимок и при flush сравнивает. Вызов save для managed-сущности ничего не добавляет."
+/>
+
+<Takeaways>
+- ORM прячет разрыв между объектами и таблицами; в Java — **JPA**, реализация — **Hibernate**.
+- **Persistence context** — кэш первого уровня: один объект на id в транзакции + снимки полей.
+- Состояния: transient → **managed** → detached / removed.
+- **Dirty checking**: managed-сущность обновляется без `save()`; SQL уходит при **flush**, а не при вызове.
+- Связи: владелец — сторона с FK, `ManyToOne` переводи в LAZY, `@Version` для оптимистичной блокировки, `SEQUENCE` вместо `IDENTITY` для пакетных вставок.
+- Отчёты, массовые операции и API-чтение — SQL, bulk-UPDATE и DTO-проекции.
+</Takeaways>
