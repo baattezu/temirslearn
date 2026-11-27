@@ -36,7 +36,7 @@ export const SEGMENTS: Record<string, Segment> = Object.fromEntries(
       ["cpp", "C++", "RAII, move, STL", ["cpp/passport", "cpp/raii", "cpp/move", "cpp/stl"]],
       ["git", "Git", "Объекты и DAG", ["tools/intro", "tools/git-internals"]],
       ["containers", "Контейнеры", "Docker и Kubernetes изнутри", ["tools/docker", "tools/kubernetes"]],
-      ["system-design", "System Design", "Подход, кэши, очереди, шардирование", ["system-design/intro", "system-design/approach", "system-design/caching", "system-design/queues", "system-design/sharding"]],
+      ["system-design", "System Design", "Подход, кэши, очереди, шардирование", ["system-design/intro", "system-design/rate-limiting", "system-design/consensus", "system-design/redis", "system-design/case-url-shortener", "system-design/approach", "system-design/caching", "system-design/queues", "system-design/sharding"]],
       ["browser", "Браузер", "Рендеринг, event loop, V8", ["browser/intro", "browser/rendering", "browser/event-loop", "browser/v8"]],
       ["react", "React и TS", "Рендер, состояние, типы, скорость", ["web/intro", "web/react-render", "web/react-state", "web/ts-types", "web/web-perf"]],
       ["discrete", "Дискретная математика", "Логика, индукция, комбинаторика, графы", ["discrete/intro", "discrete/logic", "discrete/induction", "discrete/sets", "discrete/combinatorics", "discrete/graphs"]],
@@ -50,6 +50,7 @@ export const SEGMENTS: Record<string, Segment> = Object.fromEntries(
       ["oop", "ООП и SOLID", "Инкапсуляция, полиморфизм, композиция, SOLID", ["oop/intro", "oop/encapsulation", "oop/polymorphism", "oop/composition", "solid/srp-ocp", "solid/lsp", "solid/isp-dip"]],
       ["patterns", "Паттерны", "GoF: порождающие, структурные, поведенческие", ["patterns/intro", "patterns/creational", "patterns/structural", "patterns/behavioral"]],
       ["fp", "Функциональный стиль", "Чистота, функции высшего порядка, Optional/Result", ["fp/intro", "fp/purity", "fp/higher-order", "fp/types"]],
+      ["testing", "Тестирование", "Юнит, двойники, TDD, интеграционные тесты", ["testing/intro", "testing/unit", "testing/tdd", "testing/integration"]],
       ["fintech", "Финтех", "Деньги, леджер, платежи, идемпотентность, сверка", ["fintech/intro", "fintech/money", "fintech/ledger", "fintech/payments", "fintech/idempotency", "fintech/reconciliation"]],
     ] as [string, string, string, string[], string[]?][]
   ).map(([id, title, blurb, lessons, problems]) => [id, { id, title, blurb, lessons, problems }]),
@@ -78,7 +79,7 @@ export const PROFESSIONS: Profession[] = [
     stages: [
       { title: "Введение", segments: ["intro"] },
       { title: "Фундамент", segments: ["dsa-core", "hardware", "network"] },
-      { title: "Ремесло", segments: ["craft", "oop", "patterns", "fp"] },
+      { title: "Ремесло", segments: ["craft", "oop", "patterns", "fp", "testing"] },
       { title: "Данные", segments: ["pg-storage", "pg-tx", "pg-ops"] },
       { title: "Платформа", segments: ["jvm", "java-concurrency", "spring", "orm", "linux", "containers", "git"] },
       { title: "Домен", segments: ["fintech"] },
@@ -94,7 +95,7 @@ export const PROFESSIONS: Profession[] = [
     stages: [
       { title: "Введение", segments: ["intro"] },
       { title: "Фундамент", segments: ["dsa-core", "hardware", "network"] },
-      { title: "Ремесло", segments: ["craft", "oop", "fp"] },
+      { title: "Ремесло", segments: ["craft", "oop", "fp", "testing"] },
       { title: "Данные", segments: ["pg-storage", "pg-tx"] },
       { title: "Платформа", segments: ["python", "linux", "containers", "git"] },
       { title: "Архитектура и собес", segments: ["system-design", "dsa-structures", "dsa-extra", "observability"] },
@@ -164,7 +165,7 @@ export const PROFESSIONS: Profession[] = [
     stages: [
       { title: "Введение", segments: ["intro"] },
       { title: "Фундамент", segments: ["dsa-core", "network", "browser"] },
-      { title: "Фреймворк", segments: ["react", "git", "craft", "fp"] },
+      { title: "Фреймворк", segments: ["react", "git", "craft", "fp", "testing"] },
       { title: "Архитектура", segments: ["system-design"] },
     ],
   },

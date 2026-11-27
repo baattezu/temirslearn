@@ -193,6 +193,10 @@ const RAW: Track[] = [
     ["caching", "Кэширование", "Стратегии, инвалидация, stampede"],
     ["queues", "Очереди и стриминг", "Kafka, гарантии доставки, идемпотентность"],
     ["sharding", "Шардирование и репликация", "Ключ шардирования, консистентность"],
+    ["rate-limiting", "Rate limiting", "Фиксированное окно, скользящий лог, ведро токенов — и где ставить лимитер", 20],
+    ["consensus", "Консенсус и Raft", "Как узлы договариваются о лидере и не теряют записи", 25],
+    ["redis", "Redis изнутри", "Один поток, структуры данных, персистентность, вытеснение", 20],
+    ["case-url-shortener", "Разбор: сокращатель ссылок", "Секция целиком — от требований до узких мест", 30],
   ]),
   // ── Введение ──
   track("intro", "intro", "Введение в IT", "С чего всё началось: как люди пришли к программированию, откуда языки и сеть, кто чем занимается и как учиться.", "var(--color-accent)", [
@@ -234,6 +238,13 @@ const RAW: Track[] = [
     ["behavioral", "Поведенческие", "Strategy, Observer, Template Method, Command, State", 25],
   ]),
 
+  track("testing", "craft", "Тестирование", "Пирамида тестов, двойники, TDD и интеграционные тесты с настоящей базой — на Java.", "var(--color-accent)", [
+    ["intro", "Зачем и что тестировать", "Пирамида, стоимость ошибки, хорошие и плохие тесты", 20],
+    ["unit", "Юнит-тесты и двойники", "Arrange-Act-Assert, stub, mock, fake — и когда моки вредят", 25],
+    ["tdd", "TDD", "Красный → зелёный → рефакторинг, и где TDD не нужен", 20],
+    ["integration", "Интеграционные тесты", "Testcontainers, Spring Boot Test, контрактные тесты", 25],
+  ]),
+
   // ── Предметные области ──
   track("fintech", "domains", "Финтех", "Деньги в коде: точность, двойная запись, платежи, идемпотентность, сверка. Примеры на Java.", "var(--color-amber)", [
     ["intro", "Как устроены деньги", "Банки, карты, клиринг — кто кому что должен", 20],
@@ -255,7 +266,7 @@ export const GROUPS: { id: string; title: string; tracks: string[] }[] = [
   { id: "math", title: "Математика", tracks: ["discrete", "linalg"] },
   { id: "hw", title: "Железо и ОС", tracks: ["computer", "linux", "embedded"] },
   { id: "algo", title: "Алгоритмы", tracks: ["dsa"] },
-  { id: "craft", title: "Ремесло", tracks: ["clean-code", "oop", "fp", "solid", "patterns"] },
+  { id: "craft", title: "Ремесло", tracks: ["clean-code", "oop", "fp", "solid", "patterns", "testing"] },
   { id: "langs", title: "Языки", tracks: ["c", "cpp", "java", "python"] },
   { id: "net", title: "Сеть и веб", tracks: ["network", "browser", "web"] },
   { id: "data", title: "Данные", tracks: ["databases"] },
@@ -289,6 +300,7 @@ export const RELATED: Record<string, { needs: string[]; feeds: string[] }> = {
   fp: { needs: ["java"], feeds: ["patterns"] },
   solid: { needs: ["oop"], feeds: ["patterns"] },
   patterns: { needs: ["oop", "solid"], feeds: ["system-design"] },
+  testing: { needs: ["clean-code", "java"], feeds: ["solid"] },
   c: { needs: ["computer"], feeds: ["cpp", "embedded", "linux"] },
   cpp: { needs: ["c"], feeds: [] },
   java: { needs: ["computer"], feeds: ["clean-code", "oop", "databases", "fintech"] },

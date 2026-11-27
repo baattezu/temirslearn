@@ -1,0 +1,109 @@
+import { TestDoubles } from "../../../widgets/MoreWidgets";
+
+Юнит-тест проверяет небольшую единицу поведения изолированно — без сети, базы и файлов — и выполняется за миллисекунды. Чтобы изолировать код от тяжёлых зависимостей, их подменяют **тестовыми двойниками**. Именно с двойниками связано большинство плохих тестов.
+
+## Структура: Arrange — Act — Assert
+
+```java
+@Test
+void transferMovesMoneyBetweenAccounts() {
+    // Arrange: подготовили мир
+    var from = Account.open(Money.of(1000));
+    var to = Account.open(Money.ZERO);
+    var service = new TransferService(new InMemoryAccounts(from, to), Clock.fixed(NOON, UTC));
+
+    // Act: одно действие
+    service.transfer(from.id(), to.id(), Money.of(300));
+
+    // Assert: проверили результат
+    assertThat(from.balance()).isEqualTo(Money.of(700));
+    assertThat(to.balance()).isEqualTo(Money.of(300));
+}
+```
+
+Один тест — одно поведение. Если в тесте несколько «Act», это несколько тестов. Имя теста — предложение о поведении: `transferMovesMoneyBetweenAccounts`, `rejectsTransferToSameAccount`.
+
+## Двойники бывают разными
+
+Словом «мок» называют всё подряд, но Джерард Месарош выделил пять видов, и разница важна:
+
+<TestDoubles />
+
+## Когда моки вредят
+
+Мок проверяет **взаимодействие**: «метод X вызван с аргументами Y». Такой тест знает, **как** код устроен внутри, и ломается при любом рефакторинге, даже если поведение не изменилось.
+
+<Compare
+  left={{ label: "Тест на реализацию", code: `@Test void placesOrder() {
+    when(repo.findById(1L)).thenReturn(Optional.of(cart));
+    when(pricing.total(cart)).thenReturn(Money.of(500));
+
+    service.placeOrder(1L);
+
+    verify(repo).findById(1L);
+    verify(pricing).total(cart);
+    verify(repo).save(argThat(o -> o.total().equals(Money.of(500))));
+    verifyNoMoreInteractions(repo, pricing);
+}
+// переименовали метод, кэшировали цену —
+// тест красный, хотя всё работает` }}
+  right={{ label: "Тест на поведение", code: `@Test void placesOrder() {
+    var orders = new InMemoryOrders();
+    var carts = new InMemoryCarts(cartWith(item(300), item(200)));
+    var service = new OrderService(carts, orders, new Pricing());
+
+    var id = service.placeOrder(CART_ID);
+
+    assertThat(orders.find(id))
+        .hasValueSatisfying(o -> assertThat(o.total()).isEqualTo(Money.of(500)));
+}
+// проверяем результат, а не как к нему пришли` }}
+  note="Правило: мокай то, чем не владеешь и что даёт побочные эффекты наружу (почта, платёжка, брокер), — и проверяй факт отправки. Своё доменное и хранилища — заменяй фейками или используй настоящими."
+/>
+
+Две школы:
+- **Классическая (детройтская)**: юнит — это единица **поведения**, может включать несколько настоящих классов; двойники — только для медленного и внешнего.
+- **Лондонская (mockist)**: юнит — один класс, все соседи — моки. Тесты точнее локализуют ошибку, но хрупче.
+
+На практике в бэкенде побеждает классическая школа с фейками и Testcontainers.
+
+## Время, случайность, UUID
+
+Нестабильные тесты почти всегда зависят от недетерминированного окружения. Делай его зависимостью:
+
+```java
+class TokenService {
+    private final Clock clock;            // не LocalDateTime.now()
+    private final Supplier<UUID> ids;     // не UUID.randomUUID()
+    TokenService(Clock clock, Supplier<UUID> ids) { ... }
+}
+// в тесте
+new TokenService(Clock.fixed(Instant.parse("2025-03-08T10:00:00Z"), UTC), () -> FIXED_ID);
+```
+
+## Параметризованные тесты для границ
+
+```java
+@ParameterizedTest
+@CsvSource({ "17, false", "18, true", "65, true", "0, false" })
+void ageLimit(int age, boolean allowed) {
+    assertThat(policy.canBuy(age)).isEqualTo(allowed);
+}
+```
+
+Одна проверка — много случаев, особенно граничных. Ещё мощнее — **property-based testing** (jqwik): генератор сам подбирает входы и ищет контрпример к свойству вроде «разбиение суммы на части всегда даёт исходную сумму».
+
+<Quiz
+  q="Тест сломался после рефакторинга, хотя поведение сервиса не изменилось. Скорее всего, проблема в том, что…"
+  options={["Рефакторинг сделан неправильно", "Тест проверяет реализацию — взаимодействия через моки, — а не наблюдаемое поведение", "Нужно больше моков", "Тесты всегда ломаются при рефакторинге"]}
+  answer={1}
+  why="Хрупкий тест привязан к внутреннему устройству: какие методы вызваны и в каком порядке. Тест на поведение проверяет результат и переживает рефакторинг — ради этого тесты и пишут."
+/>
+
+<Takeaways>
+- Структура **Arrange — Act — Assert**, одно поведение на тест, имя — предложение о поведении.
+- Двойники: **dummy, stub, mock, spy, fake**. Fake (in-memory реализация) часто лучший выбор.
+- **Мок проверяет взаимодействие** — это хрупко. Мокай внешние побочные эффекты, остальное — фейки или настоящие объекты.
+- Время, случайность, id — через зависимости (`Clock`, `Supplier<UUID>`): тесты детерминированы.
+- **Параметризованные** тесты для границ, **property-based** — для свойств.
+</Takeaways>
